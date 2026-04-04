@@ -110,7 +110,7 @@ final class TSTMTonemapper: CIFilter {
             )
         }
         
-        let param_num_mixtures = (log_gmm.count).withUnsafeBytes { raw -> CIImage in
+        let param_num_mixtures = [log_gmm.count].withUnsafeBytes { raw -> CIImage in
             CIImage(
                 bitmapData: Data(raw),
                 bytesPerRow: MemoryLayout<UInt>.size,
