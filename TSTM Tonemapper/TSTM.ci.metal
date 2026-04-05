@@ -20,30 +20,34 @@ extern "C"
     
     namespace coreimage
     {
-        float4 tonemap(coreimage::sample_t color,          // primary image
-                       coreimage::sample_t luminance,      // luminance helper (read-only)
-                       constant float* gmm_means,                    // read-only buffer (length = numSegments)
-                       constant float* mu_minus,                    // read-only buffer (length = numSegments)
-                       constant float* mu_plus,                    // read-only buffer (length = numSegments)
-                       constant float* h_j,                    // read-only buffer (length = numSegments )
-                       constant float* c_j,                    // read-only buffer (length = numSegments)
-                       float m,
-                       float mu_avg,
-                       int numSegments,                        // constant scalar
-                       coreimage::destination dest)            // output                        // example scalar argument
+        float4 tonemap(coreimage::sample_t color,       // primary image
+                       coreimage::sample_t luminance,   // luminance helper (read-only)
+                       constant float* gmm_means,       // read-only buffer (length = numSegments)
+                       constant float* mu_minus,        // read-only buffer (length = numSegments)
+                       constant float* mu_plus,         // read-only buffer (length = numSegments)
+                       constant float* h_j,             // read-only buffer (length = numSegments )
+                       constant float* c_j,             // read-only buffer (length = numSegments)
+                       const float m,
+                       const float mu_avg,
+                       const unsigned numSegments,      // constant scalar
+                       coreimage::destination dest)     // output
         {
-            unsigned segment_j = 0;
+            float r_G = 0.f;
             
-            for(segment_j = 0; (luminance.r >= mu_minus[segment_j]) && (luminance.r <= mu_plus[segment_j]); segment_j++) {}
-            
-            const float nakaRushton_r = normNakaRushtonEquation(luminance.r,
-                                                                gmm_means[segment_j],
-                                                                mu_minus[segment_j],
-                                                                mu_plus[segment_j],
-                                                                m,
-                                                                mu_avg);
-            
-            float r_G = c_j[segment_j] + (h_j[segment_j] * nakaRushton_r);
+            for(unsigned j = 0; j < numSegments; j++)
+            {
+                if( (luminance.r >= mu_minus[j]) && (luminance.r <= mu_plus[j]) )
+                {
+                    const float nakaRushton_r = normNakaRushtonEquation(luminance.r,
+                                                                        gmm_means[j],
+                                                                        mu_minus[j],
+                                                                        mu_plus[j],
+                                                                        m,
+                                                                        mu_avg);
+                    
+                    r_G += c_j[j] + (h_j[j] * nakaRushton_r);
+                } // else: nothing
+            }
             
             float f_G = (luminance.r / r_G) - luminance.r;
             
