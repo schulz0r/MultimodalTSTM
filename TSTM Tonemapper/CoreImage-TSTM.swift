@@ -30,8 +30,13 @@ final class TSTMTonemapper: CIFilter {
         // 1. we need to fit gaussians into the image histogram of the luminance
         // According to Ferradans, fitting works better when using a log histogram
         
+        let colorMonochromeFilter = CIFilter.colorMonochrome()
+        colorMonochromeFilter.inputImage = input
+        colorMonochromeFilter.color = CIColor(red: 0.33, green: 0.33, blue: 0.33)
+        colorMonochromeFilter.intensity = 1
+        
         // 1.1 get a log histogram
-        let (logLumHistogram, minVal, maxVal) = getLogLuminanceHistogram(InputImage: input)
+        let (logLumHistogram, minVal, maxVal) = getLogHistogram(InputImage: colorMonochromeFilter.outputImage!)
         
         // 1.2 fit a GMM into the histogram data
         let log_gmm = fitGaussianMixtureModel(histogram: logLumHistogram, numGaussians: 3, numIterations: 20)
@@ -88,42 +93,24 @@ final class TSTMTonemapper: CIFilter {
             c_j.append(c_j.last! + h_val)
         }
         
+        let gmm_means = log_gmm.map { $0.mean }
+        
         // 3. Apply Naka-Rushton equation
-        
-        let c_parameters = c_j.withUnsafeBytes { raw -> CIImage in
-            CIImage(
-                bitmapData: Data(raw),
-                bytesPerRow: log_gmm.count * MemoryLayout<Float>.size,
-                size: CGSize(width: log_gmm.count, height: 1),
-                format: .Rf,                               // CIFormat
-                colorSpace: CGColorSpace(name: CGColorSpace.linearGray)!
-            )
-        }
-        
-        let h_parameters = h_j.withUnsafeBytes { raw -> CIImage in
-            CIImage(
-                bitmapData: Data(raw),
-                bytesPerRow: log_gmm.count * MemoryLayout<Float>.size,
-                size: CGSize(width: log_gmm.count, height: 1),
-                format: .Rf,                               // CIFormat
-                colorSpace: CGColorSpace(name: CGColorSpace.linearGray)!
-            )
-        }
-        
-        let param_num_mixtures = [log_gmm.count].withUnsafeBytes { raw -> CIImage in
-            CIImage(
-                bitmapData: Data(raw),
-                bytesPerRow: MemoryLayout<UInt>.size,
-                size: CGSize(width: 1, height: 1),
-                format: .Rf,                               // CIFormat
-                colorSpace: CGColorSpace(name: CGColorSpace.linearGray)!
-            )
-        }
         
         let result = Self.kernel1.apply(
             extent: input.extent,
             roiCallback: { _, rect in rect },
-            arguments: [input]
+            arguments: [input,
+                        colorMonochromeFilter.outputImage!,
+                        Data(bytes: gmm_means, count: MemoryLayout<Float>.stride * gmm_means.count) as NSData,
+                        Data(bytes: mu_minus, count: MemoryLayout<Float>.stride * mu_minus.count) as NSData,
+                        Data(bytes: mu_plus, count: MemoryLayout<Float>.stride * mu_plus.count) as NSData,
+                        Data(bytes: h_j, count: MemoryLayout<Float>.stride * h_j.count) as NSData,
+                        Data(bytes: c_j, count: MemoryLayout<Float>.stride * c_j.count) as NSData,
+                        m,
+                        mu_avg,
+                        log_gmm.count
+                       ]
         )!
         
         // 4. Apply local contrast enhancement
@@ -134,7 +121,7 @@ final class TSTMTonemapper: CIFilter {
     }
     
     // This function generates a LogHistogram of the image's Luminance values, where outliers are removed
-    private func getLogLuminanceHistogram(InputImage: CIImage) -> ([UInt], Float, Float)
+    private func getLogHistogram(InputImage: CIImage) -> ([UInt], Float, Float)
     {
         let linHistogramWidth = 100
         let logLumHistWidth = 10
@@ -148,15 +135,12 @@ final class TSTMTonemapper: CIFilter {
         
         // 1. calculate luminance image
         
-        let colorMonochromeFilter = CIFilter.colorMonochrome()
-        colorMonochromeFilter.inputImage = InputImage
-        colorMonochromeFilter.color = CIColor(red: 0.33, green: 0.33, blue: 0.33)
-        colorMonochromeFilter.intensity = 1
+        // TODO: remove this
         
         // 2. get linear histogram
         
         let histogramFilter = CIFilter.areaHistogram()
-        histogramFilter.inputImage = colorMonochromeFilter.outputImage
+        histogramFilter.inputImage = InputImage
         histogramFilter.count = linHistogramWidth
         histogramFilter.scale = 100
         histogramFilter.extent = fullImageArea
@@ -207,7 +191,7 @@ final class TSTMTonemapper: CIFilter {
         // 4. calculate log histogram of luminance between cutoff values
         
         let logHistogramFilter = CIFilter.areaLogarithmicHistogram()
-        logHistogramFilter.inputImage = colorMonochromeFilter.outputImage!
+        logHistogramFilter.inputImage = InputImage
         logHistogramFilter.count = logLumHistWidth
         logHistogramFilter.scale = 100
         logHistogramFilter.minimumStop = log2(max(minVal, 1e-6))   // convert from 0..100 bins to actual cutoff value
