@@ -159,12 +159,13 @@ final class TSTMTonemapper: CIFilter {
         
         var sum: Float = 0.0
         
-        var minVal: Float = 0.0
+        var minVal: Float = log2(1e-6)
         for (i, binValue) in histogramValues.enumerated() {
             sum += binValue.x // x is enough as the other color channels are the same in a monochrome image
             if(sum <= 5.0)
             {
                 minVal = (Float(i) / 100.0) * Float(UInt16.max)
+                minVal = log2(max(minVal, 1e-6))
             }
             else // sum exceeds 5%
             {
@@ -175,12 +176,13 @@ final class TSTMTonemapper: CIFilter {
         
         // 3.2 find upper 5% of values
         
-        var maxVal: Float = 0.0
+        var maxVal: Float = log2(Float(UInt16.max))
         for (i, binValue) in histogramValues.reversed().enumerated() {
             sum += binValue.x // x is enough as the other color channels are the same in a monochrome image
             if(sum <= 5.0)
             {
-                maxVal = (Float(i) / 100.0) * Float(UInt16.max)
+                maxVal = (Float(histogramValues.count - 1 - i) / 100.0) * Float(UInt16.max)
+                maxVal = log2(max(maxVal, 1e-6))
             }
             else // sum exceeds 5%
             {
@@ -194,8 +196,8 @@ final class TSTMTonemapper: CIFilter {
         logHistogramFilter.inputImage = InputImage
         logHistogramFilter.count = logLumHistWidth
         logHistogramFilter.scale = 100
-        logHistogramFilter.minimumStop = log2(max(minVal, 1e-6))   // convert from 0..100 bins to actual cutoff value
-        logHistogramFilter.maximumStop = log2(max(maxVal, 1e-6))   // same with maxValue
+        logHistogramFilter.minimumStop = minVal // convert from 0..100 bins to actual cutoff value
+        logHistogramFilter.maximumStop = maxVal // same with maxValue
         logHistogramFilter.extent = fullImageArea
         
         // 5. read and return logHistogram for CPU usage
