@@ -67,7 +67,7 @@ final class TSTMTonemapper: CIFilter {
             
             if((log_gmm.count - 1) == j) // -1 because range is 0..count-1, not 1...count
             {
-                retVal = minVal
+                retVal = maxVal
             }
             else
             {
@@ -77,8 +77,8 @@ final class TSTMTonemapper: CIFilter {
         }
         
         // 2.1 calculate m from the luminance average
-        let mu_avg: Float = logLumHistogram.enumerated().map({Float(UInt($0) * $1)}).reduce(0, +)
-        let m = (pow(mu_avg, 2.0) * Float(minVal * maxVal)) / (maxVal - minVal - (2 * mu_avg)) // TODO: mu_avg is in log domain, min/max in linear
+        let mu_avg: Float = logLumHistogram.enumerated().map({Float(UInt($0) * $1)}).reduce(0, +) / Float(logLumHistogram.count)
+        let m = (pow(mu_avg, 2.0) - Float(minVal * maxVal)) / (maxVal - minVal - (2 * mu_avg)) // TODO: mu_avg is in log domain, min/max in linear
         
         let h_array = zip(luminance_min, luminance_max).map
         { (luMin, LuMax) in
