@@ -61,13 +61,13 @@ extern "C"
                                       const float m,
                                       const float mu_avg)
         {
-            float m_j = metal::max(0.f, (metal::pow(mean_j, 2.0) - (lambda_max * lambda_min) ) / (lambda_max + lambda_min - (2 * mean_j)) ); // equation (20)
+            float m_j = metal::max(0.f, ((metal::pow(mu_avg, 2.0) - (lambda_max * lambda_min)) ) / (lambda_max + lambda_min - (2 * mean_j)) ); // equation (20)
             float k_j = 1.f / log( (m_j + lambda_max) / (m_j + lambda_min) );   // equation (19)
-            float C = 0.5 - (k_j * log(m * mu_avg));  // equation (13)
+            float C = 0.5 - (k_j * log(m_j * mean_j));  // equation (13)
             
-            float r_luminance = C + (k_j * metal::log(m + lambda)); // equation (12)
-            float r_luminance_min = C + (k_j * metal::log(m + lambda_min));
-            float r_luminance_max = C + (k_j * metal::log(m + lambda_max));
+            float r_luminance = C + (k_j * metal::log(m_j + lambda)); // equation (12)
+            float r_luminance_min = C + (k_j * metal::log(m_j + lambda_min));
+            float r_luminance_max = C + (k_j * metal::log(m_j + lambda_max));
             
             return (r_luminance - r_luminance_min) / (r_luminance_max - r_luminance_min);
         }
