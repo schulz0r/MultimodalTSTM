@@ -20,21 +20,10 @@ struct Histogram
     init(measures: [UInt], minVal: Float, maxVal: Float) {
         self.measures = measures
         
-        var start = minVal
-        var end = maxVal
-        let stride = Float(measures.count) / (maxVal - minVal)
+        let start = minVal
+        let step = (maxVal - minVal) / Float(measures.count - 1)
         
-        self.labels = [Float](unsafeUninitializedCapacity: measures.count) {
-                buffer, initializedCount in
-                
-                vDSP_vgen(&start,
-                          &end,
-                          buffer.baseAddress!,
-                          vDSP_Stride(stride),
-                          vDSP_Length(measures.count))
-                
-                initializedCount = measures.count
-            }
+        self.labels = (0..<measures.count).map { start + Float($0) * step }
     }
     
     // A histogram uses binning, so the GMM fit algorithm calculates over which bin the gaussian lies.
