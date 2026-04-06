@@ -7,6 +7,11 @@
 
 import Foundation
 
+enum GmmFitError: Error {
+    case noGaussiansLeft(String)
+}
+
+
 let invSqrt2pi = 1.0 / (2 * Float.pi).squareRoot();
 
 struct Gaussian
@@ -74,6 +79,11 @@ func fitGaussianMixtureModel(histogram: [UInt], numGaussians: UInt, numIteration
         
         // kick defective gaussians
         nextGaussians.removeAll{($0.sigma < 1e-6) || ($0.weight < 1e-3)}
+        
+        if(nextGaussians.isEmpty)
+        {
+            throw GmmFitError.noGaussiansLeft("All Gaussians where canceled during fit.")
+        }
         
         gaussians = nextGaussians
     }

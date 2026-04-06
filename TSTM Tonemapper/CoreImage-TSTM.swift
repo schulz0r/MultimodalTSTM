@@ -39,7 +39,18 @@ final class TSTMTonemapper: CIFilter {
         let (logLumHistogram, minVal, maxVal) = getLogHistogram(InputImage: colorMonochromeFilter.outputImage!)
         
         // 1.2 fit a GMM into the histogram data
-        let log_gmm = fitGaussianMixtureModel(histogram: logLumHistogram, numGaussians: 3, numIterations: 20)
+        let nGaussians:UInt = 2 //UInt((logLumHistogram.labels.last! - logLumHistogram.labels.first!).rounded())
+        
+        let log_gmm:[Gaussian]
+        do
+        {
+            log_gmm = try fitGaussianMixtureModel(histogram: logLumHistogram, numGaussians: nGaussians, numIterations: 20)
+        }
+        catch
+        {
+            print("GMM fitting failed: \(error)")
+            return nil
+        }
         
         // 2. calculate input values for the tonemapper
         // 2.1 calculate value ranges
