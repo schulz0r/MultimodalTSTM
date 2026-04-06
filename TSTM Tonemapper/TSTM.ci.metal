@@ -23,8 +23,8 @@ extern "C"
         float4 tonemap(coreimage::sample_t color,       // primary image
                        coreimage::sample_t luminance,   // luminance helper (read-only)
                        constant float* gmm_means,       // read-only buffer (length = numSegments)
-                       constant float* mu_minus,        // read-only buffer (length = numSegments)
-                       constant float* mu_plus,         // read-only buffer (length = numSegments)
+                       constant float* lambda_minus,        // read-only buffer (length = numSegments)
+                       constant float* lambda_plus,         // read-only buffer (length = numSegments)
                        constant float* h_j,             // read-only buffer (length = numSegments )
                        constant float* c_j,             // read-only buffer (length = numSegments)
                        const float m,
@@ -36,12 +36,12 @@ extern "C"
             
             for(unsigned j = 0; j < numSegments; j++)
             {
-                if( (luminance.r >= mu_minus[j]) && (luminance.r <= mu_plus[j]) )
+                if( (luminance.r >= lambda_minus[j]) && (luminance.r <= lambda_plus[j]) )
                 {
                     const float nakaRushton_r = normNakaRushtonEquation(luminance.r,
                                                                         gmm_means[j],
-                                                                        mu_minus[j],
-                                                                        mu_plus[j],
+                                                                        lambda_minus[j],
+                                                                        lambda_plus[j],
                                                                         m,
                                                                         mu_avg);
                     
@@ -61,11 +61,11 @@ extern "C"
                                       const float m,
                                       const float mu_avg)
         {
-            float m_j = metal::min(0.f, (metal::pow(mean_j, 2.0) - (lambda_max * lambda_min) ) / (lambda_max + lambda_min - (2 * mean_j)) );
-            float k_j = 1.f / log( (m_j + lambda_max) / (m_j + lambda_min) );
-            float C = 0.5 * k_j * log(m * mu_avg);
+            float m_j = metal::max(0.f, (metal::pow(mean_j, 2.0) - (lambda_max * lambda_min) ) / (lambda_max + lambda_min - (2 * mean_j)) ); // equation (20)
+            float k_j = 1.f / log( (m_j + lambda_max) / (m_j + lambda_min) );   // equation (19)
+            float C = 0.5 - (k_j * log(m * mu_avg));  // equation (13)
             
-            float r_luminance = C + (k_j * metal::log(m + lambda));
+            float r_luminance = C + (k_j * metal::log(m + lambda)); // equation (12)
             float r_luminance_min = C + (k_j * metal::log(m + lambda_min));
             float r_luminance_max = C + (k_j * metal::log(m + lambda_max));
             

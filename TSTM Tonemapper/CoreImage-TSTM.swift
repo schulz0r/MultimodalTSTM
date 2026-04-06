@@ -93,7 +93,8 @@ final class TSTMTonemapper: CIFilter {
             c_j.append(c_j.last! + h_val)
         }
         
-        let gmm_means = log_gmm.map { $0.mean }
+        let gmm_means_lin = log_gmm.map({pow(2.0, $0.mean)})
+        let numClusters = log_gmm.count
         
         // 3. Apply Naka-Rushton equation
         
@@ -102,14 +103,14 @@ final class TSTMTonemapper: CIFilter {
             roiCallback: { _, rect in rect },
             arguments: [input,
                         colorMonochromeFilter.outputImage!,
-                        Data(bytes: gmm_means, count: MemoryLayout<Float>.stride * gmm_means.count) as NSData,
-                        Data(bytes: mu_minus, count: MemoryLayout<Float>.stride * mu_minus.count) as NSData,
-                        Data(bytes: mu_plus, count: MemoryLayout<Float>.stride * mu_plus.count) as NSData,
+                        Data(bytes: gmm_means_lin, count: MemoryLayout<Float>.stride * gmm_means_lin.count) as NSData,
+                        Data(bytes: luminance_min, count: MemoryLayout<Float>.stride * luminance_min.count) as NSData,
+                        Data(bytes: luminance_max, count: MemoryLayout<Float>.stride * luminance_max.count) as NSData,
                         Data(bytes: h_j, count: MemoryLayout<Float>.stride * h_j.count) as NSData,
                         Data(bytes: c_j, count: MemoryLayout<Float>.stride * c_j.count) as NSData,
                         m,
                         mu_avg,
-                        log_gmm.count
+                        numClusters
                        ]
         )!
         
