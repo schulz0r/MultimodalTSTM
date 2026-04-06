@@ -40,9 +40,9 @@ struct Histogram
     }
     
     // get the average of the data
-    public func getAverage() -> Float
+    public func getLinAverageFromLogData() -> Float
     {
-        return zip(measures, labels).map({Float(Float($0) * $1)}).reduce(0, +) / Float(measures.reduce(0, +))
+        return zip(measures, labels).map({Float($0) * pow(2.0, $1)}).reduce(0, +) / Float(measures.reduce(0, +))
     }
     
     public func getMin() -> Float

@@ -26,6 +26,7 @@ struct Gaussian
         self.weight = weight
     }
     
+    // school book definition of the posterior probability of the normal distribution
     public func probability(x: Float) -> Float
     {
         let invSigma = (1.0 / sigma).squareRoot();
@@ -33,15 +34,18 @@ struct Gaussian
     }
 }
 
-func fitGaussianMixtureModel(histogram: [UInt], numGaussians: UInt, numIterations: UInt) -> [Gaussian]
+// The EM algorithm for fitting a GMM into data with little modification to make it work with Histograms
+func fitGaussianMixtureModel(histogram: Histogram, numGaussians: UInt, numIterations: UInt) throws -> [Gaussian]
 {
     precondition(numIterations >= 1, "numIterations must be at least 1.")
     precondition(numGaussians >= 1, "numGaussians must be at least 1.")
     
     // get equally spaced gaussians
-    var gaussians = (0..<Int(numGaussians)).map { i in Gaussian(
-        mean: (Float(i) + 0.5) * (Float(histogram.count) / Float(numGaussians)),
-        sigma: Float(histogram.count) / Float(numGaussians),
+    var gaussians = (1...Int(numGaussians)).map
+    { i in
+        Gaussian(
+        mean: histogram.getMin() + ( Float(i) * (histogram.getRange() / Float(numGaussians + 1)) ),
+        sigma: histogram.getRange() / (2.0 * Float(numGaussians)), // * 2.0 because mean + 2 * sigma is the true width
         weight: 1.0 / Float(numGaussians)
     ) }
     
@@ -50,9 +54,9 @@ func fitGaussianMixtureModel(histogram: [UInt], numGaussians: UInt, numIteration
         var nextGaussians = [Gaussian](repeating: Gaussian(mean: 0.0, sigma: 0.0, weight: 0.0), count: Int(gaussians.count))
         var N = [Float](repeating: 0, count: Int(gaussians.count))
         
-        for (x, bin) in histogram.enumerated()
+        for (amount, x) in zip(histogram.measures, histogram.labels)
         {
-            let amountOfPixels = Float(bin)
+            let amountOfPixels = Float(amount)
             
             // E-Step
             let r_nk_j = gaussians.map({$0.weight * $0.probability(x: Float(x))})
