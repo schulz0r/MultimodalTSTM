@@ -30,6 +30,9 @@ struct Gaussian
 
 func fitGaussianMixtureModel(histogram: [UInt], numGaussians: UInt, numIterations: UInt) -> [Gaussian]
 {
+    precondition(numIterations >= 1, "numIterations must be at least 1.")
+    precondition(numGaussians >= 1, "numGaussians must be at least 1.")
+    
     // get equally spaced gaussians
     var gaussians = (0..<Int(numGaussians)).map { i in Gaussian(
         mean: (Float(i) + 0.5) * (Float(histogram.count) / Float(numGaussians)),
@@ -70,7 +73,7 @@ func fitGaussianMixtureModel(histogram: [UInt], numGaussians: UInt, numIteration
         }
         
         // kick defective gaussians
-        nextGaussians.removeAll{$0.sigma < 1e-6}
+        nextGaussians.removeAll{($0.sigma < 1e-6) || ($0.weight < 1e-3)}
         
         gaussians = nextGaussians
     }
