@@ -25,6 +25,7 @@ final class TSTMTonemapper: CIFilter {
 
     override var outputImage: CIImage?
     {
+        // input image comes in floating point representation. For SDR images that means pixel range [0.0...1.0]
         guard let input = inputImage else { return nil }
         
         let numHistBins = 32
@@ -34,7 +35,7 @@ final class TSTMTonemapper: CIFilter {
         
         let colorMonochromeFilter = CIFilter.colorMonochrome()
         colorMonochromeFilter.inputImage = input
-        colorMonochromeFilter.color = CIColor(red: 0.33, green: 0.33, blue: 0.33)
+        colorMonochromeFilter.color = CIColor(red: 0.334, green: 0.334, blue: 0.334)
         colorMonochromeFilter.intensity = 1
         
         // 1.1 get a log histogram (log2 space)
@@ -45,7 +46,7 @@ final class TSTMTonemapper: CIFilter {
         let lambda_max = pow(2.0, logLumHistogram.labels.last!)
         
         // 1.2 fit a GMM into the histogram data
-        let nGaussians:UInt = 2 //UInt((logLumHistogram.labels.last! - logLumHistogram.labels.first!).rounded())
+        let nGaussians:UInt = UInt( (lambda_max - lambda_min) * 2.0 )
         
         let log_gmm:[Gaussian]
         do
@@ -65,16 +66,16 @@ final class TSTMTonemapper: CIFilter {
         
         let luminance_min:[Float] = [lambda_min] + (1..<log_gmm.count).map // linear space
         {   j in
-            max( pow(2.0, (mu_plus_log[j - 1] + mu_minus_log[j]) / 2.0), pow(2.0, mu_plus_log[j - 1]) )
+            max( ( pow(2.0, mu_plus_log[j - 1]) + pow(2.0, mu_minus_log[j])) / 2.0, pow(2.0, mu_plus_log[j - 1]) )
         }
         
         let luminance_max:[Float] = (0..<(log_gmm.count - 1)).map // linear space
         {   j in
-            min( pow(2.0, (mu_plus_log[j] + mu_minus_log[j + 1]) / 2.0), pow(2.0, mu_minus_log[j + 1]) )
+            min( (pow(2.0, mu_plus_log[j]) + pow(2.0, mu_minus_log[j + 1])) / 2.0, pow(2.0, mu_minus_log[j + 1]) )
         } + [lambda_max]
         
         // 2.1 calculate m from the luminance average
-        let mu_avg: Float = logLumHistogram.getLinAverageFromLogData() * Float(UInt16.max) // lin space
+        let mu_avg: Float = logLumHistogram.getLinAverageFromLogData()
         
         let m = (pow(mu_avg, 2.0) - (lambda_max * lambda_min)) / (lambda_max + lambda_min - (2 * mu_avg)) // linear space
         
@@ -134,62 +135,22 @@ final class TSTMTonemapper: CIFilter {
             width: InputImage.extent.width,
             height: InputImage.extent.height)
         
-        // 1. calculate luminance image
+        // 1. get min and max value
         
-        // TODO: remove this
+        let minMaxFilter = CIFilter.areaMinMax()
+        minMaxFilter.inputImage = InputImage
+        minMaxFilter.extent = fullImageArea
         
-        // 2. get linear histogram
-        
-        let histogramFilter = CIFilter.areaHistogram()
-        histogramFilter.inputImage = InputImage
-        histogramFilter.count = linHistogramWidth
-        histogramFilter.scale = 100
-        histogramFilter.extent = fullImageArea
-        
-        // 3. read histogram and cut off upper and lower 5% of image in order to ignore outliers
-        
-        var histogramValues = [SIMD4<Float32>](repeating: .zero, count: linHistogramWidth)
-        context.render(histogramFilter.outputImage!,
-                       toBitmap: &histogramValues,
-                       rowBytes: MemoryLayout<SIMD4<Float32>>.stride * histogramValues.count,
-                       bounds: histogramFilter.outputImage!.extent,
+        var minMax:[SIMD4<Float32>] = [SIMD4<Float32>](repeating: .zero, count: Int(minMaxFilter.outputImage!.extent.width))
+        context.render(minMaxFilter.outputImage!,
+                       toBitmap: &minMax,
+                       rowBytes: MemoryLayout<SIMD4<Float32>>.size * minMax.count,
+                       bounds: minMaxFilter.outputImage!.extent,
                        format: .RGBAf,
                        colorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)
         
-        // 3.1 find lower x% of values
-        
-        var sum: Float = 0.0
-        
-        var minVal: Float = log2(1e-6)
-        for (i, binValue) in histogramValues.enumerated() {
-            sum += binValue.x // x is enough as the other color channels are the same in a monochrome image
-            if(sum <= cullPercentOutliers)
-            {
-                minVal = (Float(i) / Float(linHistogramWidth)) * Float(UInt16.max)
-                minVal = log2(max(minVal, 1e-6))
-            }
-            else // sum exceeds x%
-            {
-                sum = 0.0 // reset sum for next run
-                break // we don't need to go beyond x%
-            }
-        }
-        
-        // 3.2 find upper x% of values
-        
-        var maxVal: Float = log2(Float(UInt16.max))
-        for (i, binValue) in histogramValues.reversed().enumerated() {
-            sum += binValue.x // x is enough as the other color channels are the same in a monochrome image
-            if(sum <= cullPercentOutliers)
-            {
-                maxVal = (Float(histogramValues.count - 1 - i) / Float(linHistogramWidth)) * Float(UInt16.max)
-                maxVal = log2(max(maxVal, 1e-6))
-            }
-            else // sum exceeds x%
-            {
-                break // we don't need to go beyond x%
-            }
-        }
+        let minVal = log2(max(minMax.first!.x, 1e-6))
+        let maxVal = log2(max(minMax.last!.x + 1e-2, 1e-6))
         
         // 4. calculate log histogram of luminance between cutoff values
         
@@ -197,23 +158,16 @@ final class TSTMTonemapper: CIFilter {
         logHistogramFilter.inputImage = InputImage
         logHistogramFilter.count = logLumHistWidth
         logHistogramFilter.scale = 100
-        logHistogramFilter.minimumStop = minVal // convert from 0..100 bins to actual cutoff value
-        logHistogramFilter.maximumStop = maxVal // same with maxValue
+        logHistogramFilter.minimumStop = minVal
+        logHistogramFilter.maximumStop = maxVal
         logHistogramFilter.extent = fullImageArea
-        
-        let filter = CIFilter.histogramDisplay()
-        filter.inputImage = logHistogramFilter.outputImage!
-            filter.highLimit = 1
-            filter.height = 100
-            filter.lowLimit = 0
-            let histImg = filter.outputImage!
         
         // 5. read and return logHistogram for CPU usage
         
         var loghistogramValues = [SIMD4<Float32>](repeating: .zero, count: logLumHistWidth)
         context.render(logHistogramFilter.outputImage!,
                        toBitmap: &loghistogramValues,
-                       rowBytes: MemoryLayout<SIMD4<Float32>>.stride * loghistogramValues.count,
+                       rowBytes: MemoryLayout<SIMD4<Float32>>.size * loghistogramValues.count,
                        bounds: logHistogramFilter.outputImage!.extent,
                        format: .RGBAf,
                        colorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)
