@@ -95,7 +95,11 @@ func fitGaussianMixtureModel(histogram: Histogram, numGaussians: UInt, numIterat
     return gaussians
 }
 
-func logLikelihood()
+func logLikelihood(model: [Gaussian], histogram: Histogram) -> Float
 {
+    let logLikelihood = zip(histogram.measures, histogram.labels).map({ n, x in
+        log(model.map({Float(n) * $0.weight * $0.probability(x: x)}).reduce(0, +))
+    }).reduce(0, +)
     
+    return logLikelihood
 }

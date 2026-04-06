@@ -51,7 +51,12 @@ final class TSTMTonemapper: CIFilter {
         let log_gmm:[Gaussian]
         do
         {
-            log_gmm = try fitGaussianMixtureModel(histogram: logLumHistogram, numGaussians: nGaussians, numIterations: 20)
+            let gmm_attempts = try (1..<5).map({
+                try fitGaussianMixtureModel(histogram: logLumHistogram, numGaussians: $0, numIterations: 20)
+            })
+            log_gmm = gmm_attempts.max(by: { mix1, mix2 in
+                return logLikelihood(model: mix1, histogram: logLumHistogram) < logLikelihood(model: mix2, histogram: logLumHistogram)
+            })!
         }
         catch
         {
@@ -149,8 +154,8 @@ final class TSTMTonemapper: CIFilter {
                        format: .RGBAf,
                        colorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)
         
-        let minVal = log2(max(minMax.first!.x, 1e-6))
-        let maxVal = log2(max(minMax.last!.x + 1e-2, 1e-6))
+        let minVal = log2(max(minMax.first!.x - 1e-3, 1e-12))
+        let maxVal = log2(max(minMax.last!.x + 1e-3, 1e-6))
         
         // 4. calculate log histogram of luminance between cutoff values
         
