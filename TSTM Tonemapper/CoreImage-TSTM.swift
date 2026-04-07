@@ -28,7 +28,7 @@ final class TSTMTonemapper: CIFilter {
         // input image comes in floating point representation. For SDR images that means pixel range [0.0...1.0]
         guard let input = inputImage else { return nil }
         
-        let numHistBins = 32
+        let numHistBins = 16
         
         // 1. we need to fit gaussians into the image histogram of the luminance
         // According to Ferradans, fitting works better when using a log histogram
@@ -38,16 +38,17 @@ final class TSTMTonemapper: CIFilter {
         colorMonochromeFilter.color = CIColor(red: 0.334, green: 0.334, blue: 0.334)
         colorMonochromeFilter.intensity = 1
         
+        //
+        let (lambda_min, lambda_max) = getMinMax(luminanceImage: colorMonochromeFilter.outputImage!)
+        
         // 1.1 get a log histogram (log2 space)
         let logLumHistogram = getLogHistogram(InputImage: colorMonochromeFilter.outputImage!,
-                                              logLumHistWidth: numHistBins)
+                                              logLumHistWidth: numHistBins,
+                                              minLuminance: lambda_min,
+                                              maxLuminance: lambda_max
+        )
         
-        let lambda_min = pow(2.0, logLumHistogram.labels.first!)
-        let lambda_max = pow(2.0, logLumHistogram.labels.last!)
-        
-        // 1.2 fit a GMM into the histogram data
-        let nGaussians:UInt = UInt( (lambda_max - lambda_min) * 2.0 )
-        
+        // 1.2 fit a GMM into the histogram data        
         let log_gmm:[Gaussian]
         do
         {
@@ -127,8 +128,25 @@ final class TSTMTonemapper: CIFilter {
         return result
     }
     
+    private func getMinMax(luminanceImage: CIImage) -> (Float, Float)
+    {
+        let minMaxFilter = CIFilter.areaMinMax()
+        minMaxFilter.inputImage = luminanceImage
+        minMaxFilter.extent = luminanceImage.extent
+        
+        var minMax:[SIMD4<Float32>] = [SIMD4<Float32>](repeating: .zero, count: Int(minMaxFilter.outputImage!.extent.width))
+        context.render(minMaxFilter.outputImage!,
+                       toBitmap: &minMax,
+                       rowBytes: MemoryLayout<SIMD4<Float32>>.size * minMax.count,
+                       bounds: minMaxFilter.outputImage!.extent,
+                       format: .RGBAf,
+                       colorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)
+        
+        return (minMax.first!.x, minMax.last!.x)
+    }
+    
     // This function generates a LogHistogram of the image's Luminance values, where outliers are removed
-    private func getLogHistogram(InputImage: CIImage, logLumHistWidth: Int) -> Histogram
+    private func getLogHistogram(InputImage: CIImage, logLumHistWidth: Int, minLuminance: Float, maxLuminance: Float) -> Histogram
     {
         let linHistogramWidth = 100
         let cullPercentOutliers:Float = 3.0
@@ -140,24 +158,10 @@ final class TSTMTonemapper: CIFilter {
             width: InputImage.extent.width,
             height: InputImage.extent.height)
         
-        // 1. get min and max value
-        
-        let minMaxFilter = CIFilter.areaMinMax()
-        minMaxFilter.inputImage = InputImage
-        minMaxFilter.extent = fullImageArea
-        
-        var minMax:[SIMD4<Float32>] = [SIMD4<Float32>](repeating: .zero, count: Int(minMaxFilter.outputImage!.extent.width))
-        context.render(minMaxFilter.outputImage!,
-                       toBitmap: &minMax,
-                       rowBytes: MemoryLayout<SIMD4<Float32>>.size * minMax.count,
-                       bounds: minMaxFilter.outputImage!.extent,
-                       format: .RGBAf,
-                       colorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)
-        
-        let minVal = log2(max(minMax.first!.x - 1e-3, 1e-12))
-        let maxVal = log2(max(minMax.last!.x + 1e-3, 1e-6))
-        
         // 4. calculate log histogram of luminance between cutoff values
+        
+        let minVal = log2(max(minLuminance, 1e-6))
+        let maxVal = log2(max(maxLuminance, 1e-6))
         
         let logHistogramFilter = CIFilter.areaLogarithmicHistogram()
         logHistogramFilter.inputImage = InputImage
