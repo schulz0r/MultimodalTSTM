@@ -14,7 +14,7 @@ enum GmmFitError: Error {
 
 let invSqrt2pi = 1.0 / (2 * Float.pi).squareRoot();
 
-public struct Gaussian
+struct Gaussian
 {
     var mean: Float = 0
     var variance: Float = 0
@@ -35,7 +35,7 @@ public struct Gaussian
 }
 
 // The EM algorithm for fitting a GMM into data with little modification to make it work with Histograms
-public func fitGaussianMixtureModel(histogram: Histogram, numGaussians: UInt, numIterations: UInt) throws -> [Gaussian]
+func fitGaussianMixtureModel(histogram: Histogram, numGaussians: UInt, numIterations: UInt) throws -> [Gaussian]
 {
     precondition(numIterations >= 1, "numIterations must be at least 1.")
     precondition(numGaussians >= 1, "numGaussians must be at least 1.")
