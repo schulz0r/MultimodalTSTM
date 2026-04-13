@@ -45,13 +45,13 @@ extern "C"
                                                                         m,
                                                                         mu_avg);
                     
-                    r_G += c_j[j] + (h_j[j] * nakaRushton_r);
+                    r_G += c_j[j] + (h_j[j] * nakaRushton_r); // equation (21)
                 } // else: nothing
             }
             
-            float f_G = (luminance.r / r_G) - luminance.r;
+            float f_G = (luminance.r / r_G) - luminance.r; // equation (24)
             
-            return color / (color + f_G);
+            return color / (color + f_G);   // equation (17)
         }
         
         float normNakaRushtonEquation(const float lambda,
@@ -69,7 +69,7 @@ extern "C"
             float r_luminance_min = C + (k_j * metal::log(m_j + lambda_min));
             float r_luminance_max = C + (k_j * metal::log(m_j + lambda_max));
             
-            return (r_luminance - r_luminance_min) / (r_luminance_max - r_luminance_min);
+            return (r_luminance - r_luminance_min) / (r_luminance_max - r_luminance_min); // equation (18)
         }
     } // namespace coreimage
 } // extern "C"
