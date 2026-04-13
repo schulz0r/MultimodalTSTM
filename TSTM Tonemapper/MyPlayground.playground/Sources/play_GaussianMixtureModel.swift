@@ -16,20 +16,20 @@ let invSqrt2pi = 1.0 / (2 * Float.pi).squareRoot();
 
 public struct Gaussian
 {
-    var mean: Float = 0
-    var variance: Float = 0
-    var weight: Float = 0
+    public var mean: Float = 0
+    public var sigma: Float = 0
+    public var weight: Float = 0
     
     public init(mean: Float, sigma: Float, weight: Float) {
         self.mean = mean
-        self.variance = sigma
+        self.sigma = sigma
         self.weight = weight
     }
     
     // school book definition of the posterior probability of the normal distribution
     public func probability(x: Float) -> Float
     {
-        let invSigma = (1.0 / variance).squareRoot();
+        let invSigma = 1.0 / sigma.squareRoot();
         return invSqrt2pi * invSigma * exp( -0.5 * pow( (x - mean) * invSigma , 2.0) );
     }
 }
@@ -68,7 +68,7 @@ public func fitGaussianMixtureModel(histogram: Histogram, numGaussians: UInt, nu
                 {
                     N[k] += r_nk[k] * amount
                     nextGaussians[k].mean += r_nk[k] * Float(x) * amount
-                    nextGaussians[k].variance += ((r_nk[k] * pow(Float(x) - gaussians[k].mean , 2.0)) + 0.1) * amount
+                    nextGaussians[k].sigma += ((r_nk[k] * pow(Float(x) - gaussians[k].mean , 2.0)) + 0.1) * amount
                 }
             }
         }
@@ -79,11 +79,11 @@ public func fitGaussianMixtureModel(histogram: Histogram, numGaussians: UInt, nu
         {
             nextGaussians[k].weight = N[k] / N_sum
             nextGaussians[k].mean /= N[k]
-            nextGaussians[k].variance /= N[k]
+            nextGaussians[k].sigma /= N[k]
         }
         
         // kick defective gaussians
-        nextGaussians.removeAll{($0.variance < 1e-6) || ($0.weight < 1e-2)}
+        nextGaussians.removeAll{($0.sigma < 1e-3) || ($0.weight < 1e-2)}
         
         if(nextGaussians.isEmpty)
         {
@@ -100,10 +100,10 @@ public func fitGaussianMixtureModel(histogram: Histogram, numGaussians: UInt, nu
     return gaussians
 }
 
-func logLikelihood(model: [Gaussian], histogram: Histogram) -> Float
+public func logLikelihood(model: [Gaussian], histogram: Histogram) -> Float
 {
     let logLikelihood = zip(histogram.measures, histogram.labels).map({ n, x in
-        n * log(model.map({$0.weight * $0.probability(x: x)}).reduce(0, +))
+        n * log( model.map({$0.weight * $0.probability(x: x)}).reduce(0, +) )
     }).reduce(0, +)
     
     print("Log likelihood for \(model.count): \(logLikelihood)")

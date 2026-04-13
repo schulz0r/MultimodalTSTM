@@ -35,7 +35,7 @@ struct TSTM_TonemapperTests {
         }
 
         // 🔹 Speichern
-        let outputURL = URL(fileURLWithPath: "/Users/phiilppwaxweiler.de/Code/TSTM Tonemapper/output.jpg")
+        let outputURL = URL(fileURLWithPath: "/Users/phiilppwaxweiler.de/Code/TSTM Tonemapper/output1.jpg")
 
         let destination = CGImageDestinationCreateWithURL(
             outputURL as CFURL,
@@ -57,9 +57,9 @@ struct TSTM_HistogramTests {
         gaussianMixture.append(Gaussian(mean: 3, sigma: 1.0, weight: 0.6))
         gaussianMixture.append(Gaussian(mean: 7, sigma: 1.0, weight: 0.4))
         
-        let histogramValues: [UInt] = (0..<10).map { i in
-            let contributions: [UInt] = gaussianMixture.map { g in
-                UInt((100.0 * g.weight * g.probability(x: Float(i))).rounded())
+        let histogramValues: [Float] = stride(from: Float(0.0), to: 9.0, by: 1.0).map { i in
+            let contributions: [Float] = gaussianMixture.map { g in
+                g.weight * g.probability(x: i)
             }
             return contributions.reduce(0, +)
         }
@@ -69,7 +69,7 @@ struct TSTM_HistogramTests {
         let gmm = try fitGaussianMixtureModel(histogram: testHist, numGaussians: 2, numIterations: 30)
         
         #expect(abs(gmm[0].mean - gaussianMixture[0].mean) < 1e-1)
-        #expect(abs(gmm[0].sigma - gaussianMixture[0].sigma) < 1e-1)
+        #expect(abs(gmm[0].variance - gaussianMixture[0].variance) < 1e-1)
         #expect(abs(gmm[0].weight - gaussianMixture[0].weight) < 1e-1)
     }
     

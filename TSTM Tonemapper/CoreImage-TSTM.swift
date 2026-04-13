@@ -7,10 +7,6 @@
 import CoreImage
 import CoreImage.CIFilterBuiltins
 
-enum TstmFilterError: Error {
-    case invalidArgument(String)
-}
-
 final class TSTMTonemapper: CIFilter {
 
     @objc dynamic var inputImage: CIImage?
@@ -28,7 +24,7 @@ final class TSTMTonemapper: CIFilter {
         // input image comes in floating point representation. For SDR images that means pixel range [0.0...1.0]
         guard let input = inputImage else { return nil }
         
-        let numHistBins = 16
+        let numHistBins = 32
         
         // 1. we need to fit gaussians into the image histogram of the luminance
         // According to Ferradans, fitting works better when using a log histogram
@@ -38,18 +34,17 @@ final class TSTMTonemapper: CIFilter {
         colorMonochromeFilter.color = CIColor(red: 0.334, green: 0.334, blue: 0.334)
         colorMonochromeFilter.intensity = 1
         
-        //
-        let (lambda_min, lambda_max) = getMinMax(luminanceImage: colorMonochromeFilter.outputImage!)
+        // get basic image parameters
+        let (lambda_min, lambda_max, µ) = getMinMaxAvg(luminanceImage: colorMonochromeFilter.outputImage!)
         
         // 1.1 get a log histogram (log2 space)
         let logLumHistogram = getLogHistogram(InputImage: colorMonochromeFilter.outputImage!,
                                               logLumHistWidth: numHistBins,
                                               minLuminance: lambda_min,
-                                              maxLuminance: lambda_max
-        )
+                                              maxLuminance: lambda_max)
         
-        // 1.2 fit a GMM into the histogram data        
-        let log_gmm:[Gaussian]
+        // 1.2 fit a GMM into the histogram data
+        var log_gmm:[Gaussian]
         do
         {
             let gmm_attempts = try (1..<5).map({
@@ -67,23 +62,33 @@ final class TSTMTonemapper: CIFilter {
         
         // 2. calculate input values for the tonemapper
         // 2.1 calculate value ranges
-        let mu_minus_log = log_gmm.map{$0.mean - (2 * $0.sigma)} // log2 space
-        let mu_plus_log = log_gmm.map{$0.mean + (2 * $0.sigma)} // log2 space
+        var (luminance_min, luminance_max) = calcBayesianSegmentBorders(from: log_gmm, minLuminance: lambda_min, maxLuminance: lambda_max)
         
-        let luminance_min:[Float] = [lambda_min] + (1..<log_gmm.count).map // linear space
-        {   j in
-            max( ( pow(2.0, mu_plus_log[j - 1]) + pow(2.0, mu_minus_log[j])) / 2.0, pow(2.0, mu_plus_log[j - 1]) )
+        // 2.2 tiny irrelevant segments destabilize the tone mapping and therefore must be culled
+        // the corresponding gaussians will disappear
+        cullMicroscopicSegments(gmm: &log_gmm,
+                                lowerSegBorders: &luminance_min,
+                                upperSegBorders: &luminance_max,
+                                lambdaMax: lambda_min,
+                                lambdaMin: lambda_max)
+        
+        // 3. calculate all input parameters for the tone mapping algorithm
+        let mu_minus_log = log_gmm.map{$0.mean - (2 * $0.variance.squareRoot())} // log2 space
+        let mu_plus_log = log_gmm.map{$0.mean + (2 * $0.variance.squareRoot())} // log2 space
+        let gmm_means_lin = log_gmm.map({pow(2.0, $0.mean)})
+        
+        // check if segmentation borders still make sense
+        for (idx, (minLum, maxLum)) in zip(luminance_min, luminance_max).enumerated()
+        {
+            if(minLum > maxLum) || (minLum > gmm_means_lin[idx]) || (gmm_means_lin[idx] > maxLum)
+            {
+                print("Failed to segment image.")
+                return nil
+            }
         }
-        
-        let luminance_max:[Float] = (0..<(log_gmm.count - 1)).map // linear space
-        {   j in
-            min( (pow(2.0, mu_plus_log[j]) + pow(2.0, mu_minus_log[j + 1])) / 2.0, pow(2.0, mu_minus_log[j + 1]) )
-        } + [lambda_max]
-        
+         
         // 2.1 calculate m from the luminance average
-        let mu_avg: Float = logLumHistogram.getLinAverageFromLogData()
-        
-        let m = (pow(mu_avg, 2.0) - (lambda_max * lambda_min)) / (lambda_max + lambda_min - (2 * mu_avg)) // linear space
+        let m = (pow(µ, 2.0) - (lambda_max * lambda_min)) / (lambda_max + lambda_min - (2 * µ)) // linear space
         
         // h_j
         let h_array = zip(mu_minus_log, mu_plus_log).map
@@ -100,7 +105,6 @@ final class TSTMTonemapper: CIFilter {
             c_j.append(h_j[0...(j-1)].reduce(0, +))
         }
         
-        let gmm_means_lin = log_gmm.map({pow(2.0, $0.mean)})
         let numClusters = log_gmm.count
         
         // 3. Apply Naka-Rushton equation
@@ -116,7 +120,7 @@ final class TSTMTonemapper: CIFilter {
                         Data(bytes: h_j, count: MemoryLayout<Float>.stride * h_j.count) as NSData,
                         Data(bytes: c_j, count: MemoryLayout<Float>.stride * c_j.count) as NSData,
                         m,
-                        mu_avg,
+                        µ,
                         numClusters
                        ]
         )!
@@ -128,11 +132,15 @@ final class TSTMTonemapper: CIFilter {
         return result
     }
     
-    private func getMinMax(luminanceImage: CIImage) -> (Float, Float)
+    private func getMinMaxAvg(luminanceImage: CIImage) -> (Float, Float, Float)
     {
         let minMaxFilter = CIFilter.areaMinMax()
         minMaxFilter.inputImage = luminanceImage
         minMaxFilter.extent = luminanceImage.extent
+        
+        let avgFilter = CIFilter.areaAverage()
+        avgFilter.inputImage = luminanceImage
+        avgFilter.extent = luminanceImage.extent
         
         var minMax:[SIMD4<Float32>] = [SIMD4<Float32>](repeating: .zero, count: Int(minMaxFilter.outputImage!.extent.width))
         context.render(minMaxFilter.outputImage!,
@@ -142,15 +150,21 @@ final class TSTMTonemapper: CIFilter {
                        format: .RGBAf,
                        colorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)
         
-        return (minMax.first!.x, minMax.last!.x)
+        var avg:SIMD4<Float32> = .zero
+        context.render(avgFilter.outputImage!,
+                       toBitmap: &avg,
+                       rowBytes: MemoryLayout<SIMD4<Float32>>.size,
+                       bounds: avgFilter.outputImage!.extent,
+                       format: .RGBAf,
+                       colorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)
+        
+        return (minMax.first!.x, minMax.last!.x, avg.x)
     }
     
     // This function generates a LogHistogram of the image's Luminance values, where outliers are removed
     private func getLogHistogram(InputImage: CIImage, logLumHistWidth: Int, minLuminance: Float, maxLuminance: Float) -> Histogram
     {
-        let linHistogramWidth = 100
-        let cullPercentOutliers:Float = 3.0
-        var retLogHistogram = [UInt](repeating: .zero, count: logLumHistWidth)
+        var retLogHistogram = [Float]()
         
         let fullImageArea = CGRect(
             x: 0,
@@ -166,7 +180,7 @@ final class TSTMTonemapper: CIFilter {
         let logHistogramFilter = CIFilter.areaLogarithmicHistogram()
         logHistogramFilter.inputImage = InputImage
         logHistogramFilter.count = logLumHistWidth
-        logHistogramFilter.scale = 100
+        logHistogramFilter.scale = 1.0  // pixels need to add up to 1.0 like the GMM
         logHistogramFilter.minimumStop = minVal
         logHistogramFilter.maximumStop = maxVal
         logHistogramFilter.extent = fullImageArea
@@ -181,7 +195,7 @@ final class TSTMTonemapper: CIFilter {
                        format: .RGBAf,
                        colorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)
         
-        retLogHistogram = loghistogramValues.map({UInt($0.x * 100)})
+        retLogHistogram = loghistogramValues.map({$0.x}) // only extract one component (they are all equal anyway)
         
         return Histogram(measures: retLogHistogram, minVal: minVal, maxVal: maxVal)
     }

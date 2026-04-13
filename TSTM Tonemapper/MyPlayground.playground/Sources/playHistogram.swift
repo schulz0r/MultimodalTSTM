@@ -14,8 +14,8 @@ enum HistogramError: Error {
 
 public struct Histogram
 {
-    let measures:[Float]
-    var labels:[Float]
+    public let measures:[Float]
+    public var labels:[Float]
     
     public init(measures: [Float], minVal: Float, maxVal: Float) {
         self.measures = measures
