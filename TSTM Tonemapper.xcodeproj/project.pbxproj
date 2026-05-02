@@ -31,6 +31,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			additionalCompilerFlagsByRelativePath = {
 				TSTM.ci.metal = "-fcikernel";
+				contrast.ci.metal = "-fcikernel";
 			};
 			target = DE7A5DE82F79967A00C2A3AD /* TSTM Tonemapper */;
 		};

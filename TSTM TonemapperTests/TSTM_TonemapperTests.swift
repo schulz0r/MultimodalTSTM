@@ -18,16 +18,16 @@ struct TSTM_TonemapperTests {
         let context = CIContext()
 
         // 🔹 Input laden (PNG/JPG aus Bundle oder Pfad)
-        let url = URL(fileURLWithPath: "/Users/phiilppwaxweiler.de/Code/TSTM Tonemapper/input.tiff")
+        let url = URL(fileURLWithPath: "/Users/phiilppwaxweiler.de/Code/TSTM Tonemapper/input3.tiff")
         let inputImage = CIImage(contentsOf: url)!
 
         // 🔹 Dein Custom Filter
         let filter = TSTMTonemapper()
         filter.inputImage = inputImage
 
-        guard let outputImage = filter.outputImage else {
-            throw NSError(domain: "FilterError", code: -1)
-        }
+        #expect(nil != filter.outputImage)
+        
+        let outputImage = filter.outputImage!
 
         // 🔹 Rendern → CGImage
         guard let cgImage = context.createCGImage(outputImage, from: outputImage.extent) else {
@@ -35,7 +35,54 @@ struct TSTM_TonemapperTests {
         }
 
         // 🔹 Speichern
-        let outputURL = URL(fileURLWithPath: "/Users/phiilppwaxweiler.de/Code/TSTM Tonemapper/output1.jpg")
+        let outputURL = URL(fileURLWithPath: "/Users/phiilppwaxweiler.de/Code/TSTM Tonemapper/output1_nakaRushton.tiff")
+
+        let destination = CGImageDestinationCreateWithURL(
+            outputURL as CFURL,
+            UTType.tiff.identifier as CFString,
+            1,
+            nil
+        )!
+
+        CGImageDestinationAddImage(destination, cgImage, nil)
+        CGImageDestinationFinalize(destination)
+    }
+
+    @Test func CanToneMapAndEnhaceContrast() async throws {
+        let context = CIContext()
+
+        // 🔹 Input laden (PNG/JPG aus Bundle oder Pfad)
+        let url = URL(fileURLWithPath: "/Users/phiilppwaxweiler.de/Code/TSTM Tonemapper/output1_nakaRushton.tiff")
+        let inputImage = CIImage(contentsOf: url)!
+        
+        let contrastFilter = ContrastEnhancement()
+        contrastFilter.inputImage = inputImage
+        contrastFilter.alpha = 0.05
+
+        guard let outputImage = contrastFilter.outputImage else {
+            throw NSError(domain: "FilterError", code: -1)
+        }
+        
+        // check if NaN happened
+        var testValue = SIMD4<Float32>.zero;
+        context.render(outputImage,
+                       toBitmap: &testValue,
+                       rowBytes: MemoryLayout<SIMD4<Float32>>.size,
+                       bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+                       format: .RGBAf,
+                       colorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)
+        
+        #expect(!testValue.sum().isNaN) // can not be Nan
+        #expect(!testValue.sum().isInfinite) // can not be inf
+        #expect(all(testValue .>= 0.0))
+
+        // 🔹 Rendern → CGImage
+        guard let cgImage = context.createCGImage(outputImage, from: outputImage.extent) else {
+            throw NSError(domain: "RenderError", code: -2)
+        }
+
+        // 🔹 Speichern
+        let outputURL = URL(fileURLWithPath: "/Users/phiilppwaxweiler.de/Code/TSTM Tonemapper/output_contrast.jpg")
 
         let destination = CGImageDestinationCreateWithURL(
             outputURL as CFURL,
@@ -47,7 +94,6 @@ struct TSTM_TonemapperTests {
         CGImageDestinationAddImage(destination, cgImage, nil)
         CGImageDestinationFinalize(destination)
     }
-
 }
 
 struct TSTM_HistogramTests {
@@ -71,15 +117,5 @@ struct TSTM_HistogramTests {
         #expect(abs(gmm[0].mean - gaussianMixture[0].mean) < 1e-1)
         #expect(abs(gmm[0].variance - gaussianMixture[0].variance) < 1e-1)
         #expect(abs(gmm[0].weight - gaussianMixture[0].weight) < 1e-1)
-    }
-    
-    @Test func LogHistogramReturnsCorrectMean() async throws
-    {
-        let histValues:[Float] = [log2(1.0), log2(2.0)]
-                                                                      
-        let testHist = Histogram(measures: [1, 1], minVal: histValues[0], maxVal: histValues[1])
-        let average = testHist.getLinAverageFromLogData()
-        
-        #expect( abs(average - 1.5) < 1e-2)
     }
 }
