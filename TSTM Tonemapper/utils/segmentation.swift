@@ -100,16 +100,19 @@ func calcBayesianSegmentBorders(from gmm: [Gaussian], minLuminance: Float, maxLu
                                upper: xBoundaries + [maxLuminance])
 }
 
+// this function kick segments where the mean is not inside the segmentation borders
 func cullMicroscopicSegments(gmm: inout [Gaussian], segBorders: inout SegmentationBorders, minLuminance: Float, maxLuminance: Float)
 {
     // get range lengths
-    let ranges = zip(segBorders.lower, segBorders.upper).map({luMin, luMax in (luMax - luMin)})
-    // get array indicating if a cull is due (segment is less than 5% of value range)
-    let indicesToKick = ranges.enumerated().compactMap({ (idx, segRange) in
-        (segRange < ((maxLuminance - minLuminance) * 0.05))
+    let gmm_means = gmm.map({pow(2.0, $0.mean)}) // pow2 instead of exp() because histogram is log2 space, not log10
+    
+    // get array indicating if a cull is due
+    let indicesToKick = gmm_means.enumerated().compactMap({ (idx, mean) in
+        // mean is not inside segmentation borders -> mark
+        (segBorders.lower[idx] >= mean) || (mean >= segBorders.upper[idx])
     })
     
-    // go through array in reverse order and cull gmm
+    // go through array in reverse order and cull marked gmm
     for (idx, isKick) in indicesToKick.enumerated().reversed()
     {
         if(isKick)

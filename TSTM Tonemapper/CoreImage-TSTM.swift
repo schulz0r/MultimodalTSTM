@@ -72,30 +72,16 @@ final class TSTMTonemapper: CIFilter {
                                 maxLuminance: lambda_max)
         
         // save final number of segments
+        let gmm_means_lin = log_gmm.map({pow(2.0, $0.mean)}) // pow2 instead of exp() because histogram is log2 space, not log10
         let numClusters = log_gmm.count
         
-        // 2.3 final check if segmentations makes sense
-        let gmm_means_lin = log_gmm.map({pow(2.0, $0.mean)}) // pow2 instead of exp() because histogram is log2 space, not log10 
-        
-        // check if segmentation borders still make sense
-        for (idx, (minLum, maxLum)) in zip(segmentationBorders.lower, segmentationBorders.upper).enumerated()
-        {
-            if(minLum > maxLum) || (minLum > gmm_means_lin[idx]) || (gmm_means_lin[idx] > maxLum)
-            {
-                print("Failed to segment image.")
-                return nil
-            }
-        }
-        
         // 3. calculate all input parameters for the tone mapping algorithm
-         
         let parameters = TstmParameters(lambda_max: lambda_max,
                                         lambda_min: lambda_min,
                                         µ: µ,
                                         segBorder: segmentationBorders)
         
         // 3. Apply Naka-Rushton equation
-        
         let result = Self.kernel1.apply(
             extent: input.extent,
             roiCallback: { _, rect in rect },
