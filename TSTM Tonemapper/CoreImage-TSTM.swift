@@ -69,8 +69,8 @@ final class TSTMTonemapper: CIFilter {
         cullMicroscopicSegments(gmm: &log_gmm,
                                 lowerSegBorders: &luminance_min,
                                 upperSegBorders: &luminance_max,
-                                lambdaMax: lambda_min,
-                                lambdaMin: lambda_max)
+                                minLuminance: lambda_min,
+                                maxLuminance: lambda_max)
         
         // 3. calculate all input parameters for the tone mapping algorithm
         let mu_minus_log = log_gmm.map{$0.mean - (2 * $0.variance.squareRoot())} // log2 space
