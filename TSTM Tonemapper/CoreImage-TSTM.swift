@@ -27,14 +27,14 @@ final class TSTMTonemapper: CIFilter {
         let numHistBins = 32
         
         // 1. we need to fit gaussians into the image histogram of the luminance
-        // According to Ferradans, fitting works better when using a log histogram
+        // According to S. Ferradans, fitting works better when using a log histogram
         
-        let colorMonochromeFilter = CIFilter.colorMonochrome()
+        let colorMonochromeFilter = CIFilter.colorMonochrome() // this calculates a log2 histogram
         colorMonochromeFilter.inputImage = input
         colorMonochromeFilter.color = CIColor(red: 0.334, green: 0.334, blue: 0.334)
         colorMonochromeFilter.intensity = 1
         
-        // get basic image parameters
+        // get basic luminance image parameters
         let (lambda_min, lambda_max, µ) = getMinMaxAvg(luminanceImage: colorMonochromeFilter.outputImage!)
         
         // 1.1 get a log histogram (log2 space)
@@ -62,22 +62,23 @@ final class TSTMTonemapper: CIFilter {
         
         // 2. calculate input values for the tonemapper
         // 2.1 calculate value ranges
-        var (luminance_min, luminance_max) = calcBayesianSegmentBorders(from: log_gmm, minLuminance: lambda_min, maxLuminance: lambda_max)
+        var segmentationBorders = calcBayesianSegmentBorders(from: log_gmm, minLuminance: lambda_min, maxLuminance: lambda_max)
         
         // 2.2 tiny irrelevant segments destabilize the tone mapping and therefore must be culled
         // the corresponding gaussians will disappear
         cullMicroscopicSegments(gmm: &log_gmm,
-                                lowerSegBorders: &luminance_min,
-                                upperSegBorders: &luminance_max,
+                                segBorders: &segmentationBorders,
                                 minLuminance: lambda_min,
                                 maxLuminance: lambda_max)
         
-        // 3. calculate all input parameters for the tone mapping algorithm
+        // save final number of segments
+        let numClusters = log_gmm.count
         
-        let gmm_means_lin = log_gmm.map({pow(2.0, $0.mean)})
+        // 2.3 final check if segmentations makes sense
+        let gmm_means_lin = log_gmm.map({pow(2.0, $0.mean)}) // pow2 instead of exp() because histogram is log2 space, not log10 
         
         // check if segmentation borders still make sense
-        for (idx, (minLum, maxLum)) in zip(luminance_min, luminance_max).enumerated()
+        for (idx, (minLum, maxLum)) in zip(segmentationBorders.lower, segmentationBorders.upper).enumerated()
         {
             if(minLum > maxLum) || (minLum > gmm_means_lin[idx]) || (gmm_means_lin[idx] > maxLum)
             {
@@ -85,10 +86,13 @@ final class TSTMTonemapper: CIFilter {
                 return nil
             }
         }
-         
-        let parameters = TstmParameters(lambda_max: lambda_max, lambda_min: lambda_min, µ: µ, logGmm: log_gmm)
         
-        let numClusters = log_gmm.count
+        // 3. calculate all input parameters for the tone mapping algorithm
+         
+        let parameters = TstmParameters(lambda_max: lambda_max,
+                                        lambda_min: lambda_min,
+                                        µ: µ,
+                                        segBorder: segmentationBorders)
         
         // 3. Apply Naka-Rushton equation
         
@@ -98,8 +102,8 @@ final class TSTMTonemapper: CIFilter {
             arguments: [input,
                         colorMonochromeFilter.outputImage!,
                         Data(bytes: gmm_means_lin, count: MemoryLayout<Float>.stride * gmm_means_lin.count) as NSData,
-                        Data(bytes: luminance_min, count: MemoryLayout<Float>.stride * luminance_min.count) as NSData,
-                        Data(bytes: luminance_max, count: MemoryLayout<Float>.stride * luminance_max.count) as NSData,
+                        Data(bytes: segmentationBorders.lower, count: MemoryLayout<Float>.stride * segmentationBorders.lower.count) as NSData,
+                        Data(bytes: segmentationBorders.upper, count: MemoryLayout<Float>.stride * segmentationBorders.upper.count) as NSData,
                         Data(bytes: parameters.h_j, count: MemoryLayout<Float>.stride * parameters.h_j.count) as NSData,
                         Data(bytes: parameters.c_j, count: MemoryLayout<Float>.stride * parameters.c_j.count) as NSData,
                         parameters.m,
@@ -108,9 +112,7 @@ final class TSTMTonemapper: CIFilter {
                        ]
         )!
         
-        // 4. Apply local contrast enhancement
-        
-        // 5. Done! Return resultS
+        // 4. Done! Return result. Next Step would be using the ContrastEnhancement CIFilter
 
         return result
     }
@@ -190,17 +192,16 @@ private struct TstmParameters
     let c_j:[Float]
     let m:Float
     
-    public init(lambda_max: Float, lambda_min: Float, µ: Float, logGmm: [Gaussian]) {
-        let mu_minus_log = logGmm.map{$0.mean - (2 * $0.variance.squareRoot())} // log2 space
-        let mu_plus_log = logGmm.map{$0.mean + (2 * $0.variance.squareRoot())} // log2 space
+    public init(lambda_max: Float, lambda_min: Float, µ: Float, segBorder: SegmentationBorders)
+    {
         
-        // 2.1 calculate m from the luminance average
+        // calculate m from the luminance average
         let _m = (pow(µ, 2.0) - (lambda_max * lambda_min)) / (lambda_max + lambda_min - (2 * µ)) // linear space
         
         // h_j
-        let h_array:[Float] = zip(mu_minus_log, mu_plus_log).map
+        let h_array:[Float] = zip(segBorder.lower, segBorder.upper).map
         { (luMin, LuMax) in
-            log( (_m + pow(2.0, LuMax)) / (_m + pow(2.0, luMin)) )
+            log( (_m + LuMax) / (_m + luMin) )
         }
         let h_sum = h_array.reduce(0, +)
         let _h_j = h_array.map{$0 / h_sum}

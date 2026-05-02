@@ -7,6 +7,12 @@
 
 import Foundation
 
+struct SegmentationBorders
+{
+    let lower:[Float]
+    let upper:[Float]
+}
+
 // Solve for t where w1*N(t | μ1, σ1) == w2*N(t | μ2, σ2)
 // Here σ is variance (not stddev). If your model stores stddev, square it before passing in.
 func crossoverTBetween(_ g1: Gaussian, _ g2: Gaussian) -> Float? {
@@ -60,11 +66,12 @@ func crossoverTBetween(_ g1: Gaussian, _ g2: Gaussian) -> Float? {
 }
 
 // Build touching segments in linear space [0, 1]
-func calcBayesianSegmentBorders(from gmm: [Gaussian], minLuminance: Float, maxLuminance: Float) -> (mins: [Float], maxs: [Float]) {
-    guard !gmm.isEmpty else { return ([], []) }
+func calcBayesianSegmentBorders(from gmm: [Gaussian], minLuminance: Float, maxLuminance: Float) -> SegmentationBorders {
+    guard !gmm.isEmpty else { return SegmentationBorders(lower: [], upper: []) }
+    
     if gmm.count == 1
     {
-        return ([minLuminance], [maxLuminance])
+        return SegmentationBorders(lower: [minLuminance], upper: [maxLuminance])
     }
 
     // Compute crossover boundaries in log2 domain
@@ -89,15 +96,14 @@ func calcBayesianSegmentBorders(from gmm: [Gaussian], minLuminance: Float, maxLu
     let xBoundaries = tBoundaries.map { pow(2.0, $0) }
 
     // Assemble segments [0, x1], [x1, x2], ..., [x_{k-1}, 1]
-    let mins: [Float] = [minLuminance] + xBoundaries
-    let maxs: [Float] = xBoundaries + [maxLuminance]
-    return (mins, maxs)
+    return SegmentationBorders(lower: [minLuminance] + xBoundaries,
+                               upper: xBoundaries + [maxLuminance])
 }
 
-func cullMicroscopicSegments(gmm: inout [Gaussian], lowerSegBorders: inout [Float], upperSegBorders: inout [Float], minLuminance: Float, maxLuminance: Float)
+func cullMicroscopicSegments(gmm: inout [Gaussian], segBorders: inout SegmentationBorders, minLuminance: Float, maxLuminance: Float)
 {
     // get range lengths
-    let ranges = zip(lowerSegBorders, upperSegBorders).map({luMin, luMax in (luMax - luMin)})
+    let ranges = zip(segBorders.lower, segBorders.upper).map({luMin, luMax in (luMax - luMin)})
     // get array indicating if a cull is due (segment is less than 5% of value range)
     let indicesToKick = ranges.enumerated().compactMap({ (idx, segRange) in
         (segRange < ((maxLuminance - minLuminance) * 0.05))
@@ -115,6 +121,6 @@ func cullMicroscopicSegments(gmm: inout [Gaussian], lowerSegBorders: inout [Floa
     // if cull happened, recalculate borders
     if( indicesToKick.contains(where: {$0 == true}) )
     {
-        (lowerSegBorders, upperSegBorders) = calcBayesianSegmentBorders(from: gmm, minLuminance: minLuminance, maxLuminance: maxLuminance)
+        segBorders = calcBayesianSegmentBorders(from: gmm, minLuminance: minLuminance, maxLuminance: maxLuminance)
     }
 }
