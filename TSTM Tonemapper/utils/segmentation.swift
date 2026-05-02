@@ -66,12 +66,12 @@ func crossoverTBetween(_ g1: Gaussian, _ g2: Gaussian) -> Float? {
 }
 
 // Build touching segments in linear space [0, 1]
-func calcBayesianSegmentBorders(from gmm: [Gaussian], minLuminance: Float, maxLuminance: Float) -> SegmentationBorders {
+func calcBayesianSegmentBorders(from gmm: [Gaussian], globLuminance: GlobalLuminanceParameters) -> SegmentationBorders {
     guard !gmm.isEmpty else { return SegmentationBorders(lower: [], upper: []) }
     
     if gmm.count == 1
     {
-        return SegmentationBorders(lower: [minLuminance], upper: [maxLuminance])
+        return SegmentationBorders(lower: [globLuminance.min], upper: [globLuminance.max])
     }
 
     // Compute crossover boundaries in log2 domain
@@ -96,12 +96,12 @@ func calcBayesianSegmentBorders(from gmm: [Gaussian], minLuminance: Float, maxLu
     let xBoundaries = tBoundaries.map { pow(2.0, $0) }
 
     // Assemble segments [0, x1], [x1, x2], ..., [x_{k-1}, 1]
-    return SegmentationBorders(lower: [minLuminance] + xBoundaries,
-                               upper: xBoundaries + [maxLuminance])
+    return SegmentationBorders(lower: [globLuminance.min] + xBoundaries,
+                               upper: xBoundaries + [globLuminance.max])
 }
 
 // this function kick segments where the mean is not inside the segmentation borders
-func cullMicroscopicSegments(gmm: inout [Gaussian], segBorders: inout SegmentationBorders, minLuminance: Float, maxLuminance: Float)
+func cullMicroscopicSegments(gmm: inout [Gaussian], segBorders: inout SegmentationBorders, globLuminance: GlobalLuminanceParameters)
 {
     // get range lengths
     let gmm_means = gmm.map({pow(2.0, $0.mean)}) // pow2 instead of exp() because histogram is log2 space, not log10
@@ -124,6 +124,6 @@ func cullMicroscopicSegments(gmm: inout [Gaussian], segBorders: inout Segmentati
     // if cull happened, recalculate borders
     if( indicesToKick.contains(where: {$0 == true}) )
     {
-        segBorders = calcBayesianSegmentBorders(from: gmm, minLuminance: minLuminance, maxLuminance: maxLuminance)
+        segBorders = calcBayesianSegmentBorders(from: gmm, globLuminance: globLuminance)
     }
 }
