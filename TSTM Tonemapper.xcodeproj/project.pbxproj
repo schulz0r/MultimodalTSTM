@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 90;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -56,18 +56,14 @@
 /* Begin PBXFrameworksBuildPhase section */
 		DE7A5DE62F79967A00C2A3AD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		DE7A5DEF2F79967A00C2A3AD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				DE7A5DF32F79967A00C2A3AD /* TSTM_Tonemapper.framework in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -104,10 +100,8 @@
 /* Begin PBXHeadersBuildPhase section */
 		DE7A5DE42F79967A00C2A3AD /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
@@ -119,18 +113,13 @@
 				DE7A5DE42F79967A00C2A3AD /* Headers */,
 				DE7A5DE52F79967A00C2A3AD /* Sources */,
 				DE7A5DE62F79967A00C2A3AD /* Frameworks */,
-				DE7A5DE72F79967A00C2A3AD /* Resources */,
 			);
 			buildRules = (
-			);
-			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
 				DE7A5DEB2F79967A00C2A3AD /* TSTM Tonemapper */,
 			);
 			name = "TSTM Tonemapper";
-			packageProductDependencies = (
-			);
 			productName = "TSTM Tonemapper";
 			productReference = DE7A5DE92F79967A00C2A3AD /* TSTM_Tonemapper.framework */;
 			productType = "com.apple.product-type.framework";
@@ -152,8 +141,6 @@
 				DE7A5DF62F79967A00C2A3AD /* TSTM TonemapperTests */,
 			);
 			name = "TSTM TonemapperTests";
-			packageProductDependencies = (
-			);
 			productName = "TSTM TonemapperTests";
 			productReference = DE7A5DF22F79967A00C2A3AD /* TSTM TonemapperTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -185,7 +172,7 @@
 			);
 			mainGroup = DE7A5DDF2F79967A00C2A3AD;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
+			preferredProjectObjectVersion = 90;
 			productRefGroup = DE7A5DEA2F79967A00C2A3AD /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -197,36 +184,23 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		DE7A5DE72F79967A00C2A3AD /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		DE7A5DF02F79967A00C2A3AD /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		DE7A5DE52F79967A00C2A3AD /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		DE7A5DEE2F79967A00C2A3AD /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
@@ -239,7 +213,7 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		DE7A5DF92F79967A00C2A3AD /* Debug */ = {
+		DE7A5DF92F79967A00C2A3AD /* Debug configuration for PBXProject "TSTM Tonemapper" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -304,7 +278,7 @@
 			};
 			name = Debug;
 		};
-		DE7A5DFA2F79967A00C2A3AD /* Release */ = {
+		DE7A5DFA2F79967A00C2A3AD /* Release configuration for PBXProject "TSTM Tonemapper" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -361,7 +335,7 @@
 			};
 			name = Release;
 		};
-		DE7A5DFC2F79967A00C2A3AD /* Debug */ = {
+		DE7A5DFC2F79967A00C2A3AD /* Debug configuration for PBXNativeTarget "TSTM Tonemapper" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
@@ -407,7 +381,7 @@
 			};
 			name = Debug;
 		};
-		DE7A5DFD2F79967A00C2A3AD /* Release */ = {
+		DE7A5DFD2F79967A00C2A3AD /* Release configuration for PBXNativeTarget "TSTM Tonemapper" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
@@ -453,7 +427,7 @@
 			};
 			name = Release;
 		};
-		DE7A5DFF2F79967A00C2A3AD /* Debug */ = {
+		DE7A5DFF2F79967A00C2A3AD /* Debug configuration for PBXNativeTarget "TSTM TonemapperTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
@@ -477,7 +451,7 @@
 			};
 			name = Debug;
 		};
-		DE7A5E002F79967A00C2A3AD /* Release */ = {
+		DE7A5E002F79967A00C2A3AD /* Release configuration for PBXNativeTarget "TSTM TonemapperTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
@@ -507,28 +481,25 @@
 		DE7A5DE32F79967A00C2A3AD /* Build configuration list for PBXProject "TSTM Tonemapper" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				DE7A5DF92F79967A00C2A3AD /* Debug */,
-				DE7A5DFA2F79967A00C2A3AD /* Release */,
+				DE7A5DF92F79967A00C2A3AD /* Debug configuration for PBXProject "TSTM Tonemapper" */,
+				DE7A5DFA2F79967A00C2A3AD /* Release configuration for PBXProject "TSTM Tonemapper" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		DE7A5DFB2F79967A00C2A3AD /* Build configuration list for PBXNativeTarget "TSTM Tonemapper" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				DE7A5DFC2F79967A00C2A3AD /* Debug */,
-				DE7A5DFD2F79967A00C2A3AD /* Release */,
+				DE7A5DFC2F79967A00C2A3AD /* Debug configuration for PBXNativeTarget "TSTM Tonemapper" */,
+				DE7A5DFD2F79967A00C2A3AD /* Release configuration for PBXNativeTarget "TSTM Tonemapper" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		DE7A5DFE2F79967A00C2A3AD /* Build configuration list for PBXNativeTarget "TSTM TonemapperTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				DE7A5DFF2F79967A00C2A3AD /* Debug */,
-				DE7A5E002F79967A00C2A3AD /* Release */,
+				DE7A5DFF2F79967A00C2A3AD /* Debug configuration for PBXNativeTarget "TSTM TonemapperTests" */,
+				DE7A5E002F79967A00C2A3AD /* Release configuration for PBXNativeTarget "TSTM TonemapperTests" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
