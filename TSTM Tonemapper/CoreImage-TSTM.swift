@@ -73,8 +73,7 @@ final class TSTMTonemapper: CIFilter {
                                 maxLuminance: lambda_max)
         
         // 3. calculate all input parameters for the tone mapping algorithm
-        let mu_minus_log = log_gmm.map{$0.mean - (2 * $0.variance.squareRoot())} // log2 space
-        let mu_plus_log = log_gmm.map{$0.mean + (2 * $0.variance.squareRoot())} // log2 space
+        
         let gmm_means_lin = log_gmm.map({pow(2.0, $0.mean)})
         
         // check if segmentation borders still make sense
@@ -87,23 +86,7 @@ final class TSTMTonemapper: CIFilter {
             }
         }
          
-        // 2.1 calculate m from the luminance average
-        let m = (pow(µ, 2.0) - (lambda_max * lambda_min)) / (lambda_max + lambda_min - (2 * µ)) // linear space
-        
-        // h_j
-        let h_array = zip(mu_minus_log, mu_plus_log).map
-        { (luMin, LuMax) in
-            log( (m + pow(2.0, LuMax)) / (m + pow(2.0, luMin)) )
-        }
-        let h_sum = h_array.reduce(0, +)
-        let h_j:[Float] = h_array.map{$0 / h_sum}
-        
-        // c_j
-        var c_j = [Float](repeating: 0.0, count: 1)
-        for j in (1..<h_j.endIndex)
-        {
-            c_j.append(h_j[0...(j-1)].reduce(0, +))
-        }
+        let parameters = TstmParameters(lambda_max: lambda_max, lambda_min: lambda_min, µ: µ, logGmm: log_gmm)
         
         let numClusters = log_gmm.count
         
@@ -117,9 +100,9 @@ final class TSTMTonemapper: CIFilter {
                         Data(bytes: gmm_means_lin, count: MemoryLayout<Float>.stride * gmm_means_lin.count) as NSData,
                         Data(bytes: luminance_min, count: MemoryLayout<Float>.stride * luminance_min.count) as NSData,
                         Data(bytes: luminance_max, count: MemoryLayout<Float>.stride * luminance_max.count) as NSData,
-                        Data(bytes: h_j, count: MemoryLayout<Float>.stride * h_j.count) as NSData,
-                        Data(bytes: c_j, count: MemoryLayout<Float>.stride * c_j.count) as NSData,
-                        m,
+                        Data(bytes: parameters.h_j, count: MemoryLayout<Float>.stride * parameters.h_j.count) as NSData,
+                        Data(bytes: parameters.c_j, count: MemoryLayout<Float>.stride * parameters.c_j.count) as NSData,
+                        parameters.m,
                         µ,
                         numClusters
                        ]
@@ -198,5 +181,35 @@ final class TSTMTonemapper: CIFilter {
         retLogHistogram = loghistogramValues.map({$0.x}) // only extract one component (they are all equal anyway)
         
         return Histogram(measures: retLogHistogram, minVal: minVal, maxVal: maxVal)
+    }
+}
+
+private struct TstmParameters
+{
+    let h_j:[Float]
+    let c_j:[Float]
+    let m:Float
+    
+    public init(lambda_max: Float, lambda_min: Float, µ: Float, logGmm: [Gaussian]) {
+        let mu_minus_log = logGmm.map{$0.mean - (2 * $0.variance.squareRoot())} // log2 space
+        let mu_plus_log = logGmm.map{$0.mean + (2 * $0.variance.squareRoot())} // log2 space
+        
+        // 2.1 calculate m from the luminance average
+        let _m = (pow(µ, 2.0) - (lambda_max * lambda_min)) / (lambda_max + lambda_min - (2 * µ)) // linear space
+        
+        // h_j
+        let h_array:[Float] = zip(mu_minus_log, mu_plus_log).map
+        { (luMin, LuMax) in
+            log( (_m + pow(2.0, LuMax)) / (_m + pow(2.0, luMin)) )
+        }
+        let h_sum = h_array.reduce(0, +)
+        let _h_j = h_array.map{$0 / h_sum}
+        
+        // c_j
+        let _c_j = [0.0] + (1..<_h_j.endIndex).map{ j in _h_j[0...(j-1)].reduce(0, +) }
+        
+        self.m = _m
+        self.h_j = _h_j
+        self.c_j = _c_j
     }
 }
