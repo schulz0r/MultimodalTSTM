@@ -29,8 +29,7 @@ extern "C"
                        constant float* c_j,             // read-only buffer (length = numSegments)
                        const float m,
                        const float mu_avg,
-                       const unsigned numSegments,      // constant scalar
-                       coreimage::destination dest)     // output
+                       const unsigned numSegments)      // constant scalar
         {
             float r_G = 0.f;
             
