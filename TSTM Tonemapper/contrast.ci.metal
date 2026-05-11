@@ -18,41 +18,28 @@ extern "C"
     
     namespace coreimage
     {
-        // calc the non linearity with a local average instead of each pixel
-        float4 rACE(coreimage::sampler Ik,
-                    coreimage::destination dest)
+        float4 sineImage(coreimage::sample_t I_x,
+                           const float w_k)
         {
-            const float2 centerPos = dest.coord();
-            const float4 I_x = Ik.sample(Ik.transform(centerPos));
-            const int kernelDim = 41;
-            
-            float4 r_ace = 0.f;
-            float normFactor = 0.f;
-            
-            for(int y = -kernelDim; y < kernelDim; y++)
-            {
-                for(int x = -kernelDim; x < kernelDim; x++)
-                {
-                    if( (0 == x) && (0 == y) )
-                    {
-                        continue;
-                    }
-                    
-                    float2 offset = centerPos + float2(x, y);
-                    float4 I_y = Ik.sample(Ik.transform(offset));
-                    
-                    // euclidean distance
-                    float euclideanDist = 1.f / (sqrt(pow(x, 2.f) + pow(y, 2.f)) + 1e-3);
-                    
-                    r_ace += euclideanDist * sigmoid(I_x - I_y);
-                    normFactor += euclideanDist;
-                }
-            }
-             
-            r_ace /= (normFactor + 1e-3);
-            r_ace.a = 1.0;
-            
-            return r_ace;
+            return sin(w_k * I_x);
+        }
+        
+        float4 cosineImage(coreimage::sample_t I_x,
+                           const float w_k)
+        {
+            return cos(w_k * I_x);
+        }
+        
+        float4 contrastTermApprox(coreimage::sample_t I_x,
+                                  coreimage::sample_t sineImage,
+                                  coreimage::sample_t cosineImage,
+                                  coreimage::sample_t sum,
+                                  const float w_k,
+                                  const float beta_k)
+        {
+            float4 nextSum = sum;
+            nextSum += 2 * beta_k * ((sin(w_k * I_x) * cosineImage) - (cos(w_k * I_x) * sineImage));
+            return nextSum;
         }
         
         float4 contrastEnhance(coreimage::sample_t I_0,
