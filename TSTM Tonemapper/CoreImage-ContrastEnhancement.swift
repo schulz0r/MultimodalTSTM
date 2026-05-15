@@ -63,6 +63,9 @@ final class ContrastEnhancement: CIFilter {
         {
             let contrastTerm = calcContrastFunctional(image: contrastEnhanced ?? input)
             
+            // 🔹 Rendern → CGImage
+            let cgImage = context.createCGImage(contrastTerm, from: contrastTerm.extent)
+            
             contrastEnhanced = Self.contrastKernel.apply(extent: input.extent,
                                                         roiCallback: { _, rect in rect },
                                                         arguments: [input,  // I_0
@@ -78,7 +81,7 @@ final class ContrastEnhancement: CIFilter {
     private func calcContrastFunctional(image: CIImage) -> CIImage
     {
         let K = 9
-        let gaussKernelSize:Float = 30.0
+        let gaussKernelSize:Float = 90.0
         
         let w:[Float] = (0...K).map({2.0 * Float.pi * Float($0)})
         
@@ -112,17 +115,17 @@ final class ContrastEnhancement: CIFilter {
                                                                       C_m.outputImage!,
                                                                       contrastTerm,
                                                                       Data(bytes: w, count: MemoryLayout<Float>.stride * w.count) as NSData,
-                                                                      Data(bytes: alpha_nm[m], count: MemoryLayout<Float>.stride * alpha_nm[m].count) as NSData,
-                                                                      Data(bytes: beta_nm[m], count: MemoryLayout<Float>.stride * beta_nm[m].count) as NSData,
-                                                                      Data(bytes: gamma_nm[m], count: MemoryLayout<Float>.stride * gamma_nm[m].count) as NSData,
-                                                                      Data(bytes: delta_nm[m], count: MemoryLayout<Float>.stride * delta_nm[m].count) as NSData,
+                                                                      Data(bytes: alpha_n[m], count: MemoryLayout<Float>.stride * alpha_n[m].count) as NSData,
+                                                                      Data(bytes: beta_n[m], count: MemoryLayout<Float>.stride * beta_n[m].count) as NSData,
+                                                                      Data(bytes: gamma_n[m], count: MemoryLayout<Float>.stride * gamma_n[m].count) as NSData,
+                                                                      Data(bytes: delta_n[m], count: MemoryLayout<Float>.stride * delta_n[m].count) as NSData,
                                                                       K ])!
         } // contrast term approximation
         
         return contrastTerm
     }
     
-    private let alpha_nm:[[Float]] = [[ 0.00000000e+00,  1.09466075e-01,  4.38294190e-02,  2.51860710e-02,
+    private let alpha_n:[[Float]] = [[ 0.00000000e+00,  1.09466075e-01,  4.38294190e-02,  2.51860710e-02,
                               1.69097316e-02,  1.23909838e-02,  9.60525216e-03,  7.74426699e-03,
                               6.42785808e-03,  5.45587759e-03],
                             [-1.09466075e-01, -3.81639165e-17,  1.04693329e-02,  7.55215074e-03,
@@ -153,7 +156,7 @@ final class ContrastEnhancement: CIFilter {
                              -6.39173901e-04, -4.69457415e-04, -3.37679371e-04, -2.26667376e-04,
                              -1.23582782e-04, -8.67361738e-19]];
     
-    private let beta_nm:[[Float]] = [[ 0.0       ,  0.0       ,  0.0       ,  0.0       ,  0.0       ,
+    private let beta_n:[[Float]] = [[ 0.0       ,  0.0       ,  0.0       ,  0.0       ,  0.0       ,
                              0.0       ,  0.0       ,  0.0       ,  0.0       ,  0.0       ],
                            [ 0.36764631, -0.57980561,  0.02086   ,  0.01125728,  0.00728074,
                              0.00520174,  0.00395806,  0.00314565,  0.00258094,  0.00216984],
@@ -174,7 +177,7 @@ final class ContrastEnhancement: CIFilter {
                            [ 0.02938028,  0.00098051,  0.00132493,  0.00128127,  0.00120287,
                              0.0011287 ,  0.00106395,  0.00100808,  0.00095959, -0.06953324]];
     
-    private let gamma_nm:[[Float]] = [[ 0.0        , -0.36764631, -0.16188543, -0.10120707, -0.07285935,
+    private let gamma_n:[[Float]] = [[ 0.0        , -0.36764631, -0.16188543, -0.10120707, -0.07285935,
                               -0.05660711, -0.04612809, -0.03883431, -0.03347657, -0.02938028],
                              [ 0.0       ,  0.57980561, -0.01883058, -0.00921274, -0.00541319,
                               -0.00351496, -0.00242853, -0.00174894, -0.00129632, -0.00098051],
@@ -195,7 +198,7 @@ final class ContrastEnhancement: CIFilter {
                              [ 0.0       , -0.00216984, -0.00171409, -0.00146585, -0.00130369,
                               -0.00118687, -0.0010974 , -0.00102593, -0.00096696,  0.06953324]];
     
-    private let delta_nm:[[Float]] = [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
+    private let delta_n:[[Float]] = [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
                               0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
                               0.00000000e+00,  0.00000000e+00],
                             [ 0.00000000e+00, -2.77555756e-17,  1.69504757e-02,  1.44282880e-02,

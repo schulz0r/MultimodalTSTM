@@ -41,7 +41,7 @@ extern "C"
             float4 sineSum = 0.0;
             float4 cosineSum = 0.0;
             
-            for(unsigned char n = 0; n <= degree; n++)
+            for(unsigned char n = 0u; n <= degree; n++)
             {
                 const float4 img_cos = cos(w[n] * I_x);
                 const float4 img_sin = sin(w[n] * I_x);
@@ -66,12 +66,13 @@ extern "C"
                                const float alpha,
                                const float beta)
         {
-            float4 colorNext = I_k + (stepSize * ( (0.5f * alpha) + (beta * I_0) + (0.5f * R_ace) ));
-            colorNext /=  1.f + (stepSize * (alpha + beta));
+            float4 colorNext = 1.f;
             
-            colorNext.a = 1.f;
+            colorNext.rgb = I_k.rgb + (stepSize * ( (0.5f * alpha) + (beta * I_0.rgb) + (0.5 * R_ace.rgb) ));
+            colorNext.rgb /=  1.f + (stepSize * (alpha + beta));
             
-            return saturate(colorNext);
+            return float4(saturate(colorNext.rgb), I_0.a);
+
         }
     } // namespace coreimage
 } // extern "C"
