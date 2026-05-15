@@ -10,12 +10,7 @@ using namespace metal;
 #include <CoreImage/CoreImage.h>
 
 extern "C"
-{
-    float4 sigmoid(const float4 x)
-    {
-        return tanh(20.f * x) / tanh(20.f);
-    }
-    
+{    
     namespace coreimage
     {
         float4 sineImage(coreimage::sample_t I_x,
@@ -34,11 +29,35 @@ extern "C"
                                   coreimage::sample_t sineImage,
                                   coreimage::sample_t cosineImage,
                                   coreimage::sample_t sum,
-                                  const float w_k,
-                                  const float beta_k)
+                                  constant float * w,
+                                  constant float * alpha,
+                                  constant float * beta,
+                                  constant float * gamma,
+                                  constant float * delta,
+                                  const int degree)
         {
             float4 nextSum = sum;
-            nextSum += 2 * beta_k * ((sin(w_k * I_x) * cosineImage) - (cos(w_k * I_x) * sineImage));
+            
+            float4 sineSum = 0.0;
+            float4 cosineSum = 0.0;
+            
+            float4 img_cos = 0.f;
+            float4 img_sin = 0.f;
+            
+            for(unsigned char n = 0; n <= degree; n++)
+            {
+                img_cos = cos(w[n] * I_x);
+                img_sin = sin(w[n] * I_x);
+                
+                sineSum += (beta[n] * img_cos) + (delta[n] * img_sin);
+                cosineSum += (alpha[n] * img_cos) + (gamma[n] * img_sin);
+            }
+            
+            sineSum *= sineImage;
+            cosineSum *= cosineImage;
+            
+            nextSum += sineSum + cosineSum;
+            
             return nextSum;
         }
         
