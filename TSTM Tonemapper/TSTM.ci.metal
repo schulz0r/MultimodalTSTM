@@ -50,7 +50,9 @@ extern "C"
             
             float f_G = (luminance.r / r_G) - luminance.r; // equation (24)
             
-            return color / (color + f_G);   // equation (17)
+            color.rgb = color.rgb / (color.rgb + f_G);   // equation (17)
+            
+            return color;
         }
         
         float normNakaRushtonEquation(const float lambda,
