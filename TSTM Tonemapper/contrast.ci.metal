@@ -14,7 +14,7 @@ extern "C"
     namespace coreimage
     {
         float4 sineImage(coreimage::sample_t I_x,
-                           const float w_k)
+                         const float w_k)
         {
             return sin(w_k * I_x);
         }
@@ -26,8 +26,8 @@ extern "C"
         }
         
         float4 contrastTermApprox(coreimage::sample_t I_x,
-                                  coreimage::sample_t sineImage,
-                                  coreimage::sample_t cosineImage,
+                                  coreimage::sample_t S_m,
+                                  coreimage::sample_t C_m,
                                   coreimage::sample_t sum,
                                   constant float * w,
                                   constant float * alpha,
@@ -36,29 +36,27 @@ extern "C"
                                   constant float * delta,
                                   const int degree)
         {
-            float4 nextSum = sum;
+            float4 returnVal = 0.f;
             
             float4 sineSum = 0.0;
             float4 cosineSum = 0.0;
             
-            float4 img_cos = 0.f;
-            float4 img_sin = 0.f;
-            
             for(unsigned char n = 0; n <= degree; n++)
             {
-                img_cos = cos(w[n] * I_x);
-                img_sin = sin(w[n] * I_x);
+                const float4 img_cos = cos(w[n] * I_x);
+                const float4 img_sin = sin(w[n] * I_x);
                 
                 sineSum += (beta[n] * img_cos) + (delta[n] * img_sin);
                 cosineSum += (alpha[n] * img_cos) + (gamma[n] * img_sin);
             }
             
-            sineSum *= sineImage;
-            cosineSum *= cosineImage;
+            sineSum *= S_m;
+            cosineSum *= C_m;
             
-            nextSum += sineSum + cosineSum;
+            returnVal = sum + sineSum + cosineSum;
+            returnVal.a = 1.0;
             
-            return nextSum;
+            return returnVal;
         }
         
         float4 contrastEnhance(coreimage::sample_t I_0,
