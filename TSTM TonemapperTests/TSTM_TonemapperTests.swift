@@ -35,7 +35,7 @@ struct TSTM_TonemapperTests {
         }
 
         // 🔹 Speichern
-        let outputURL = URL(fileURLWithPath: "/Users/phiilppwaxweiler.de/Code/TSTM Tonemapper/output1_nakaRushton.tiff")
+        let outputURL = URL(fileURLWithPath: "/Users/phiilppwaxweiler.de/Code/TSTM Tonemapper/output2_nakaRushton.tiff")
 
         let destination = CGImageDestinationCreateWithURL(
             outputURL as CFURL,
