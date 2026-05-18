@@ -15,26 +15,21 @@ extern "C"
     {
         float4 tonemap(coreimage::sample_t color,       // primary image
                        coreimage::sample_t luminance,   // luminance helper (read-only)
-                       constant float * f_G,
+                       constant float * lightnessLUT,   // luminance helper (read-only)
+                       const float minLuminance,
+                       const float maxLuminance,
                        const unsigned toneCurveLength)
         {
-            const float i = luminance.r * toneCurveLength;
-            const unsigned baseIdx = floor(i);
-            
-            float f_intpl = 0.f;
-            if(baseIdx < toneCurveLength)
-            {
-                const float frac = i - floor(i);
-                f_intpl = mix(f_G[baseIdx], f_G[baseIdx + 1u], frac);
-            }
-            else
-            {
-                f_intpl = f_G[baseIdx];
-            }
-            
             float4 toneMappedRGB = 1.f;
-            toneMappedRGB.rgb = color.rgb / (color.rgb + f_intpl);   // equation (17)
             
+            const float normedPos = ((luminance.r - minLuminance) / (maxLuminance - minLuminance));
+            const unsigned short u = floor(normedPos) * toneCurveLength;
+            
+            const float f_G = (u < toneCurveLength)? mix(lightnessLUT[u], lightnessLUT[u + 1u], (normedPos * toneCurveLength) - float(u)) : lightnessLUT[u];
+            
+            toneMappedRGB.rgb = color.rgb / (color.rgb + f_G);   // equation (17)
+            
+            //return toneMappedRGB;
             return toneMappedRGB;
         }
     } // namespace coreimage

@@ -33,13 +33,16 @@ final class TSTMTonemapper: CIFilter {
         colorMonochromeFilter.color = CIColor(red: 0.334, green: 0.334, blue: 0.334)
         colorMonochromeFilter.intensity = 1
         
-        // get basic luminance image parameters
+        // get min, max and average luminance
         let globLuminance = GlobalLuminanceParameters(luminanceImage: colorMonochromeFilter.outputImage!, context: self.context)
         
+        // segment picture using a GMM
         let (segmentationBorders, means) = segmentImage(lumImage: colorMonochromeFilter.outputImage!, luminanceParams: globLuminance)
         
         // 3. calculate all input parameters for the tone mapping algorithm
-        let f_G = calcToneCurve(globLuminance: globLuminance, segBorders: segmentationBorders, means: means)
+        let f_G = calcToneCurve(globLuminance: globLuminance,
+                                segBorders: segmentationBorders,
+                                means: means)
         
         // 3. Apply Naka-Rushton equation
         let result = Self.kernel1.apply(
@@ -47,7 +50,9 @@ final class TSTMTonemapper: CIFilter {
             roiCallback: { _, rect in rect },
             arguments: [input,
                         colorMonochromeFilter.outputImage!,
-                        Data(bytes: f_G, count: MemoryLayout<Float>.stride * f_G.count) as NSData,
+                        Data(bytes: f_G, count: MemoryLayout<Float>.size * f_G.count),
+                        globLuminance.min,
+                        globLuminance.max,
                         f_G.count // length of the tone curve
                        ]
         )!
@@ -144,12 +149,13 @@ final class TSTMTonemapper: CIFilter {
             log( (m + border.upper) / (m + border.lower) )
         }
         let h_sum = h_array.reduce(0, +)
-        let h_j = h_array.map{$0 / h_sum}
+        let h = h_array.map{$0 / h_sum} // eq. (23)
         
         // c_j
-        let c_j = [0.0] + (1..<h_j.endIndex).map{ j in h_j[0...(j-1)].reduce(0, +) }
+        let c = [0.0] + (1..<h.endIndex).map{ j in h[0...(j - 1)].reduce(0, +) }
 
-        let lumVals = stride(from: globLuminance.min, through: globLuminance.max, by: (globLuminance.max - globLuminance.min) / 256.0)
+        // the lightness perception function f_G (eq. (24) in the paper) will be precalculated for the GPU
+        let lumVals = stride(from: globLuminance.min, through: globLuminance.max, by: (globLuminance.max - globLuminance.min) / 255.0)
         
         let f_G:[Float] = lumVals.map({ luminance in
             var r_G: Float = 0.0
@@ -162,7 +168,7 @@ final class TSTMTonemapper: CIFilter {
                                                                 segment: segment,
                                                                 mu_avg: globLuminance.µ);
                     
-                    r_G += c_j[j] + (h_j[j] * nakaRushton_r); // equation (21)
+                    r_G += c[j] + (h[j] * nakaRushton_r); // equation (21)
                 } // else: nothing
             }
             return (luminance / (r_G + 1e-8)) - luminance; // equation (24)
@@ -176,7 +182,7 @@ final class TSTMTonemapper: CIFilter {
                                          segment: SegmentationBorder,
                                          mu_avg: Float) -> Float
     {
-        var m_j: Float = ((pow(mu_avg, 2.0) - (segment.upper * segment.lower)) ) / (segment.upper + segment.lower - (2 * mean)); // equation (20)
+        var m_j: Float = ((pow(mu_avg, 2.0) - (segment.upper * segment.lower)) ) / (segment.upper + segment.lower - (2.0 * mean)); // equation (20)
         m_j = max(1e-8,  m_j); // equation (20) part 2. Cannot be 0 because equation (12) contains a log(x) where x cannot be 0
         
         let k_j: Float = 1.0 / log( (m_j + segment.upper) / (m_j + segment.lower) );   // equation (19)
