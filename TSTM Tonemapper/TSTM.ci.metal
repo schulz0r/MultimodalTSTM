@@ -23,9 +23,10 @@ extern "C"
             float4 toneMappedRGB = 1.f;
             
             const float normedPos = ((luminance.r - minLuminance) / (maxLuminance - minLuminance));
-            const unsigned short u = floor(normedPos) * toneCurveLength;
+            const unsigned short u = floor(normedPos * (toneCurveLength - 1u));
+            const float frac = (normedPos * (toneCurveLength - 1u)) - float(u);
             
-            const float f_G = (u < toneCurveLength)? mix(lightnessLUT[u], lightnessLUT[u + 1u], (normedPos * toneCurveLength) - float(u)) : lightnessLUT[u];
+            const float f_G = (u < (toneCurveLength - 1u))? mix(lightnessLUT[u], lightnessLUT[u + 1u], frac) : lightnessLUT[u];
             
             toneMappedRGB.rgb = color.rgb / (color.rgb + f_G);   // equation (17)
             
