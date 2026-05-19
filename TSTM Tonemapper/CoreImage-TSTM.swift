@@ -40,9 +40,11 @@ final class TSTMTonemapper: CIFilter {
         let (segmentationBorders, means) = segmentImage(lumImage: colorMonochromeFilter.outputImage!, luminanceParams: globLuminance)
         
         // 3. calculate all input parameters for the tone mapping algorithm
-        let f_G = calcToneCurve(globLuminance: globLuminance,
-                                segBorders: segmentationBorders,
-                                means: means)
+        let f_G:[Float32] = calcToneCurve(globLuminance: globLuminance,
+                                          segBorders: segmentationBorders,
+                                          means: means)
+        
+        let fgSize:UInt32 = UInt32(f_G.count)
         
         // 3. Apply Naka-Rushton equation
         let result = Self.kernel1.apply(
@@ -50,10 +52,10 @@ final class TSTMTonemapper: CIFilter {
             roiCallback: { _, rect in rect },
             arguments: [input,
                         colorMonochromeFilter.outputImage!,
-                        Data(bytes: f_G, count: MemoryLayout<Float>.size * f_G.count),
-                        globLuminance.min,
-                        globLuminance.max,
-                        f_G.count // length of the tone curve
+                        Float32(globLuminance.min),
+                        Float32(globLuminance.max),
+                        Data(bytes: f_G, count: MemoryLayout<Float32>.stride * f_G.count) as NSData,
+                        fgSize // length of the tone curve
                        ]
         )!
         
@@ -137,36 +139,51 @@ final class TSTMTonemapper: CIFilter {
         return (segmentationBorders, gmm_means_lin)
     }
     
-    private func calcToneCurve(globLuminance: GlobalLuminanceParameters, segBorders: [SegmentationBorder], means: [Float]) -> [Float]
+    private func calcToneCurve(globLuminance: GlobalLuminanceParameters, segBorders: [SegmentationBorder], means: [Float]) -> [Float32]
     {
+        // calculate m from the luminance average, this is needed in eq. (23)
+        let m = (pow(globLuminance.µ, 2.0) - (globLuminance.max * globLuminance.min)) / (globLuminance.max + globLuminance.min - (2 * globLuminance.µ)) // eq. (20)
         
-        // calculate m from the luminance average
-        let m = (pow(globLuminance.µ, 2.0) - (globLuminance.max * globLuminance.min)) / (globLuminance.max + globLuminance.min - (2 * globLuminance.µ)) // linear space
-        
-        // h_j
+        // h_j eq. (23)
         let h_array:[Float] = segBorders.map
         { border in
             log( (m + border.upper) / (m + border.lower) )
         }
         let h_sum = h_array.reduce(0, +)
-        let h = h_array.map{$0 / h_sum} // eq. (23)
+        let h = h_array.map{$0 / h_sum}
         
         // c_j
         let c = [0.0] + (1..<h.endIndex).map{ j in h[0...(j - 1)].reduce(0, +) }
+        
+        // parameters per segment j
+        let m_ = zip(segBorders, means).map({ segment, mean in
+            let m_j = ((pow(mean, 2.0) - (segment.upper * segment.lower)) ) / (segment.upper + segment.lower - (2.0 * mean)); // equation (20)
+            return max(1e-8,  m_j); // equation (20) part 2. Cannot be 0 because equation (12) contains a log(x) where x cannot be 0
+        })
+        
+        let k_ = zip(segBorders, m_).map({ segment, m_j in
+            1.0 / log( (m_j + segment.upper) / (m_j + segment.lower) );   // equation (19)
+        })
+
+        let C_ = zip(zip(k_, m_), means).map({ params, µ in
+            let (k_j, m_j) = params
+            return 0.5 - (k_j * log(m_j * µ));  // equation (13)
+        })
 
         // the lightness perception function f_G (eq. (24) in the paper) will be precalculated for the GPU
         let lumVals = stride(from: globLuminance.min, through: globLuminance.max, by: (globLuminance.max - globLuminance.min) / 255.0)
         
-        let f_G:[Float] = lumVals.map({ luminance in
-            var r_G: Float = 0.0
+        let f_G:[Float32] = lumVals.map({ luminance in
+            var r_G: Float32 = 0.0
             for (j, segment) in segBorders.enumerated()
             {
                 if( segment.contains(x: luminance) )
                 {
                     let nakaRushton_r = normNakaRushtonEquation(lambda: luminance,
-                                                                mean: means[j],
-                                                                segment: segment,
-                                                                mu_avg: globLuminance.µ);
+                                                                m_j: m_[j],
+                                                                k_j: k_[j],
+                                                                C: C_[j],
+                                                                segment: segment)
                     
                     r_G += c[j] + (h[j] * nakaRushton_r); // equation (21)
                 } // else: nothing
@@ -178,15 +195,11 @@ final class TSTMTonemapper: CIFilter {
     }
     
     private func normNakaRushtonEquation(lambda: Float,
-                                         mean: Float,
-                                         segment: SegmentationBorder,
-                                         mu_avg: Float) -> Float
+                                         m_j: Float,
+                                         k_j: Float,
+                                         C: Float,
+                                         segment: SegmentationBorder) -> Float
     {
-        var m_j: Float = ((pow(mu_avg, 2.0) - (segment.upper * segment.lower)) ) / (segment.upper + segment.lower - (2.0 * mean)); // equation (20)
-        m_j = max(1e-8,  m_j); // equation (20) part 2. Cannot be 0 because equation (12) contains a log(x) where x cannot be 0
-        
-        let k_j: Float = 1.0 / log( (m_j + segment.upper) / (m_j + segment.lower) );   // equation (19)
-        let C: Float = 0.5 - (k_j * log(m_j * mean));  // equation (13)
         
         let r_luminance = C + (k_j * log(m_j + lambda)); // equation (12)
         let r_luminance_min = C + (k_j * log(m_j + segment.lower));
@@ -194,7 +207,7 @@ final class TSTMTonemapper: CIFilter {
         
         return (r_luminance - r_luminance_min) / (r_luminance_max - r_luminance_min); // equation (18)
     }
-}
+} // end of class
 
 // parameter structs
 
