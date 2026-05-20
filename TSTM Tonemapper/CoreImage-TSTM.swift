@@ -40,11 +40,18 @@ final class TSTMTonemapper: CIFilter {
         let (segmentationBorders, means) = segmentImage(lumImage: colorMonochromeFilter.outputImage!, luminanceParams: globLuminance)
         
         // 3. calculate all input parameters for the tone mapping algorithm
-        let f_G:[Float32] = calcToneCurve(globLuminance: globLuminance,
-                                          segBorders: segmentationBorders,
-                                          means: means)
+        let f_G = calcToneCurve(globLuminance: globLuminance,
+                                segBorders: segmentationBorders,
+                                means: means)
         
-        let fgSize:UInt32 = UInt32(f_G.count)
+        let lut = f_G.withUnsafeBufferPointer { Data(buffer: $0) }
+        let lutImage = CIImage(bitmapData: lut,
+                               bytesPerRow: MemoryLayout<Float32>.size * f_G.count,
+                               size: CGSize(width: f_G.count, height: 1), // 256x1 pixel
+                               format: .Rf,
+                               colorSpace: nil)
+        
+        let texture = lutImage.metalTexture // this is nil
         
         // 3. Apply Naka-Rushton equation
         let result = Self.kernel1.apply(
@@ -52,10 +59,9 @@ final class TSTMTonemapper: CIFilter {
             roiCallback: { _, rect in rect },
             arguments: [input,
                         colorMonochromeFilter.outputImage!,
-                        Float32(globLuminance.min),
-                        Float32(globLuminance.max),
-                        Data(bytes: f_G, count: MemoryLayout<Float32>.stride * f_G.count) as NSData,
-                        fgSize // length of the tone curve
+                        lutImage,
+                        globLuminance.min,
+                        globLuminance.max
                        ]
         )!
         
