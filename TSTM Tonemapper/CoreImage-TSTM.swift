@@ -63,7 +63,7 @@ final class TSTMTonemapper: CIFilter {
             roiCallback: { _, rect in rect },
             arguments: [input,
                         multiplyFilter.outputImage!,
-                        lut,
+                        lutImage,
                         globLuminance.min,
                         globLuminance.max
                        ]
