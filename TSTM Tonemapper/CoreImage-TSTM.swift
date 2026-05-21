@@ -27,17 +27,21 @@ final class TSTMTonemapper: CIFilter {
         
         // 1. we need to fit gaussians into the image histogram of the luminance
         // According to S. Ferradans, fitting works better when using a log histogram
+        let lumVector = CIVector(x: 0.33, y: 0.33, z: 0.33, w: 0.0)
         
-        let colorMonochromeFilter = CIFilter.colorMonochrome() // this calculates a log2 histogram
-        colorMonochromeFilter.inputImage = input
-        colorMonochromeFilter.color = CIColor(red: 0.334, green: 0.334, blue: 0.334)
-        colorMonochromeFilter.intensity = 1
+        let multiplyFilter = CIFilter.colorMatrix()
+        multiplyFilter.inputImage = input
+        multiplyFilter.rVector = lumVector
+        multiplyFilter.gVector = lumVector
+        multiplyFilter.bVector = lumVector
+        multiplyFilter.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)   // Alpha unverändert
+        multiplyFilter.biasVector = CIVector(x: 0, y: 0, z: 0, w: 0)
         
         // get min, max and average luminance
-        let globLuminance = GlobalLuminanceParameters(luminanceImage: colorMonochromeFilter.outputImage!, context: self.context)
+        let globLuminance = GlobalLuminanceParameters(luminanceImage: multiplyFilter.outputImage!, context: self.context)
         
         // segment picture using a GMM
-        let (segmentationBorders, means) = segmentImage(lumImage: colorMonochromeFilter.outputImage!, luminanceParams: globLuminance)
+        let (segmentationBorders, means) = segmentImage(lumImage: multiplyFilter.outputImage!, luminanceParams: globLuminance)
         
         // 3. calculate all input parameters for the tone mapping algorithm
         let f_G = calcToneCurve(globLuminance: globLuminance,
@@ -58,8 +62,8 @@ final class TSTMTonemapper: CIFilter {
             extent: input.extent,
             roiCallback: { _, rect in rect },
             arguments: [input,
-                        colorMonochromeFilter.outputImage!,
-                        lutImage,
+                        multiplyFilter.outputImage!,
+                        lut,
                         globLuminance.min,
                         globLuminance.max
                        ]
