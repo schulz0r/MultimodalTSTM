@@ -125,7 +125,7 @@ func cullMicroscopicSegments(gmm: inout [Gaussian], segBorders: inout [Segmentat
     // get array indicating if a cull is due
     let indicesToKick = gmm_means.enumerated().compactMap({ (idx, mean) in
         // mean is not inside segmentation borders -> mark
-        return segBorders[idx].contains(x: mean)
+        return !segBorders[idx].contains(x: mean)
     })
     
     // go through array in reverse order and cull marked gmm
