@@ -28,11 +28,27 @@ struct TSTM_TonemapperTests {
         #expect(nil != filter.outputImage)
         
         let outputImage = filter.outputImage!
-
+        
+        // check if NaN happened
+        var testValue = SIMD4<Float32>.zero;
+        context.render(outputImage,
+                       toBitmap: &testValue,
+                       rowBytes: MemoryLayout<SIMD4<Float32>>.size,
+                       bounds: CGRect(x: inputImage.extent.width / 3, y: 1, width: 1, height: 1),
+                       format: .RGBAf,
+                       colorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)
+        
+        #expect(!testValue.sum().isNaN) // can not be Nan
+        #expect(!testValue.sum().isInfinite) // can not be inf
+        #expect(all(testValue .>= 0.0))
+        
+        print(testValue)
+        
         // 🔹 Rendern → CGImage
         guard let cgImage = context.createCGImage(outputImage, from: outputImage.extent) else {
             throw NSError(domain: "RenderError", code: -2)
         }
+        
 
         // 🔹 Speichern
         let outputURL = URL(fileURLWithPath: "/Users/phiilppwaxweiler.de/Code/TSTM Tonemapper/output2_nakaRushton.tiff")
