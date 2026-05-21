@@ -11,7 +11,7 @@ final class TSTMTonemapper: CIFilter {
 
     @objc dynamic var inputImage: CIImage?
     
-    private let context = CIContext()
+    private let context = CIContext(options: [.workingColorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!, .outputColorSpace: NSNull()])
 
     private static let kernel1: CIKernel = {
         let url = Bundle(for: TSTMTonemapper.self).url(forResource: "default", withExtension: "metallib")!
@@ -99,7 +99,7 @@ final class TSTMTonemapper: CIFilter {
                        rowBytes: MemoryLayout<SIMD4<Float32>>.size * loghistogramValues.count,
                        bounds: logHistogramFilter.outputImage!.extent,
                        format: .RGBAf,
-                       colorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)
+                       colorSpace: nil)
         
         retLogHistogram = loghistogramValues.map({$0.x}) // only extract one component (they are all equal anyway)
         
@@ -239,7 +239,7 @@ extension GlobalLuminanceParameters
                        rowBytes: MemoryLayout<SIMD4<Float32>>.size * minMax.count,
                        bounds: minMaxFilter.outputImage!.extent,
                        format: .RGBAf,
-                       colorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)
+                       colorSpace: nil)
         
         var avg:SIMD4<Float32> = .zero
         context.render(avgFilter.outputImage!,
@@ -247,7 +247,7 @@ extension GlobalLuminanceParameters
                        rowBytes: MemoryLayout<SIMD4<Float32>>.size,
                        bounds: avgFilter.outputImage!.extent,
                        format: .RGBAf,
-                       colorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)
+                       colorSpace: nil)
         
         self.min = minMax.first!.x
         self.max = minMax.last!.x
