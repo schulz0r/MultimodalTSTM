@@ -24,34 +24,24 @@ final class TSTMTonemapper: CIFilter {
         // input image comes in floating point representation. For SDR images that means pixel range [0.0...1.0]
         guard let input = inputImage else { return nil }
         
-        
-        // 1. we need to fit gaussians into the image histogram of the luminance
-        // According to S. Ferradans, fitting works better when using a log histogram
-        let lumVector = CIVector(x: 0.334, y: 0.334, z: 0.334, w: 0.0)
-        
-        let multiplyFilter = CIFilter.colorMatrix()
-        multiplyFilter.inputImage = input
-        multiplyFilter.rVector = lumVector
-        multiplyFilter.gVector = lumVector
-        multiplyFilter.bVector = lumVector
-        multiplyFilter.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)   // Alpha unverändert
-        multiplyFilter.biasVector = CIVector(x: 0, y: 0, z: 0, w: 0)
+        // make luminance image with dot(pixel, [0.334, 0.334, 0.334])
+        let luminanceImage = getLuminanceImage(colorImage: input)
         
         // get min, max and average luminance
-        let globLuminance = GlobalLuminanceParameters(luminanceImage: multiplyFilter.outputImage!, context: self.context)
+        let globLuminance = GlobalLuminanceParameters(luminanceImage: luminanceImage, context: self.context)
         
         // segment picture using a GMM
-        let (segmentationBorders, means) = segmentImage(lumImage: multiplyFilter.outputImage!, luminanceParams: globLuminance)
+        let (segmentationBorders, means) = segmentImage(lumImage: luminanceImage, luminanceParams: globLuminance)
         
-        // 3. calculate all input parameters for the tone mapping algorithm
+        // calculate all TSTM input parameters for the tone mapping algorithm
         let tstmParams = TstmParameters(globLuminance: globLuminance, segBorders: segmentationBorders, means: means)
         
-        // 3. Apply Naka-Rushton equation
-        let result = Self.kernel1.apply(
+        // Apply Naka-Rushton equation using precalculated parameters
+        let tonemappedImage = Self.kernel1.apply(
             extent: input.extent,
             roiCallback: { _, rect in rect },
             arguments: [input,
-                        multiplyFilter.outputImage!,
+                        luminanceImage,
                         segmentationBorders.map({$0.lower}).withUnsafeBufferPointer { Data(buffer: $0) },
                         segmentationBorders.map({$0.upper}).withUnsafeBufferPointer { Data(buffer: $0) },
                         tstmParams.m_j.withUnsafeBufferPointer { Data(buffer: $0) },
@@ -63,8 +53,23 @@ final class TSTMTonemapper: CIFilter {
                        ]
         )!
         
-        // 4. Done! Return result. Next Step would be using the ContrastEnhancement CIFilter
-        return result
+        // Done! Return result. Next Step would be using the ContrastEnhancement CIFilter
+        return tonemappedImage
+    }
+    
+    private func getLuminanceImage(colorImage: CIImage) -> CIImage
+    {
+        let lumVector = CIVector(x: 0.334, y: 0.334, z: 0.334, w: 0.0)
+        
+        let multiplyFilter = CIFilter.colorMatrix()
+        multiplyFilter.inputImage = colorImage
+        multiplyFilter.rVector = lumVector
+        multiplyFilter.gVector = lumVector
+        multiplyFilter.bVector = lumVector
+        multiplyFilter.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)   // Alpha unverändert
+        multiplyFilter.biasVector = CIVector(x: 0, y: 0, z: 0, w: 0)
+        
+        return multiplyFilter.outputImage!
     }
     
     // This function generates a LogHistogram of the image's Luminance values, where outliers are removed
@@ -77,7 +82,9 @@ final class TSTMTonemapper: CIFilter {
         let minVal = log2(max(globLuminance.min, 1e-6))
         let maxVal = log2(max(globLuminance.max, 1e-6))
         
-        let logHistogramFilter = CIFilter.areaLogarithmicHistogram()
+        // 1. we need to fit gaussians into the image histogram of the luminance
+        // According to S. Ferradans, fitting works better when using a log histogram
+        let logHistogramFilter = CIFilter.areaLogarithmicHistogram() // log2 space
         logHistogramFilter.inputImage = InputImage
         logHistogramFilter.count = logLumHistWidth
         logHistogramFilter.scale = 1.0  // pixels need to add up to 1.0 like the GMM
