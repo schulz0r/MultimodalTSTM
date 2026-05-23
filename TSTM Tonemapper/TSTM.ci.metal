@@ -63,7 +63,7 @@ extern "C"
             
             const float3 toneMapped = color.rgb / (color.rgb + f_G + 1e-12);
             
-            return float4(toneMapped, color.a);
+            return float4(saturate(toneMapped), color.a);
         }
     } // namespace coreimage
 } // extern "C"

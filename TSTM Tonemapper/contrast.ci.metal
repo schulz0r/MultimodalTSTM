@@ -54,7 +54,7 @@ extern "C"
             
             colorNext.a = 1.f;
             
-            return colorNext;
+            return saturate(colorNext);
         }
     } // namespace coreimage
 } // extern "C"
