@@ -61,7 +61,7 @@ extern "C"
             }
             const float f_G = (luminance.r / (r_G + 1e-12)) - luminance.r; // equation (24)
             
-            const float3 toneMapped = color.rgb / (color.rgb + f_G + 1e-12);
+            const float3 toneMapped = color.rgb / (color.rgb + f_G + 1e-3);
             
             return float4(saturate(toneMapped), color.a);
         }
