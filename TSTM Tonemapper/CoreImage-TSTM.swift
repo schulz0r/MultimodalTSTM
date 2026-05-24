@@ -11,7 +11,7 @@ final class TSTMTonemapper: CIFilter {
 
     @objc dynamic var inputImage: CIImage?
     
-    private let context = CIContext(options: [.workingColorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!, .outputColorSpace: NSNull()])
+    private let context = CIContext(options: [.workingColorSpace: CGColorSpace(name: CGColorSpace.extendedSRGB)!, .outputColorSpace: NSNull()])
 
     private static let kernel1: CIKernel = {
         let url = Bundle(for: TSTMTonemapper.self).url(forResource: "default", withExtension: "metallib")!

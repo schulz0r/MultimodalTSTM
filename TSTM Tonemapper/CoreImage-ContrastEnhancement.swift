@@ -16,7 +16,9 @@ final class ContrastEnhancement: CIFilter {
     @objc dynamic var alpha: Float = 255.0 / 253.0
     @objc dynamic var beta: Float = 1.0
     
-    private let context = CIContext(options: [.workingColorSpace: CGColorSpace(name: CGColorSpace.sRGB)!, .outputColorSpace: NSNull()])
+
+    private let context = CIContext(options: [.workingColorSpace: CGColorSpace(name: CGColorSpace.extendedSRGB)!, .outputColorSpace: NSNull()])
+
     
     private static let sineImageKernel: CIKernel = {
         let url = Bundle(for: TSTMTonemapper.self).url(forResource: "default", withExtension: "metallib")!
@@ -81,7 +83,7 @@ final class ContrastEnhancement: CIFilter {
     private func calcContrastFunctional(image: CIImage) -> CIImage
     {
         let K = 9
-        let gaussKernelSize:Float = 90.0
+        let gaussKernelSize:Float = 200.0
         
         let w:[Float] = (0...K).map({2.0 * Float.pi * Float($0)})
         
