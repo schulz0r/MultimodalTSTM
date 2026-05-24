@@ -68,11 +68,14 @@ struct TSTM_TonemapperTests {
         let context = CIContext()
 
         // 🔹 Input laden (PNG/JPG aus Bundle oder Pfad)
-        let url = URL(fileURLWithPath: "/Users/phiilppwaxweiler.de/Code/TSTM Tonemapper/output1_nakaRushton.tiff")
+        let url = URL(fileURLWithPath: "/Users/phiilppwaxweiler.de/Code/TSTM Tonemapper/testpix/schneeweg.tiff")
         let inputImage = CIImage(contentsOf: url)!
         
+        let mapped = TSTMTonemapper()
+        mapped.inputImage = inputImage
+        
         let contrastFilter = ContrastEnhancement()
-        contrastFilter.inputImage = inputImage
+        contrastFilter.inputImage = mapped.outputImage
         contrastFilter.alpha = 0.05
 
         guard let outputImage = contrastFilter.outputImage else {
