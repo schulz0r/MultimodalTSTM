@@ -16,7 +16,7 @@ final class ContrastEnhancement: CIFilter {
     @objc dynamic var alpha: Float = 0.5
     @objc dynamic var beta: Float = 1.0
     
-    private let context = CIContext()
+    private let context = CIContext(options: [.workingColorSpace: CGColorSpace(name: CGColorSpace.sRGB)!, .outputColorSpace: NSNull()])
     
     private static let sineImageKernel: CIKernel = {
         let url = Bundle(for: TSTMTonemapper.self).url(forResource: "default", withExtension: "metallib")!
