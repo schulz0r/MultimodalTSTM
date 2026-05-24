@@ -66,13 +66,12 @@ extern "C"
                                const float alpha,
                                const float beta)
         {
-            float4 colorNext = 1.f;
+            float3 colorNext = 0.f;
             
             colorNext.rgb = I_k.rgb + (stepSize * ( (0.5f * alpha) + (beta * I_0.rgb) + (0.5 * R_ace.rgb) ));
             colorNext.rgb /=  1.f + (stepSize * (alpha + beta));
             
-            return float4(saturate(colorNext.rgb), I_0.a);
-
+            return float4(saturate(colorNext), I_0.a);
         }
     } // namespace coreimage
 } // extern "C"
