@@ -2,3 +2,5 @@
 *.tiff
 *.jpg
 xc*
+*jpg*
+testpix/*
