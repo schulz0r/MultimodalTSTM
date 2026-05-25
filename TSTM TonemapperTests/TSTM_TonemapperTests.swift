@@ -67,8 +67,9 @@ struct TSTM_TonemapperTests {
     @Test func CanToneMapAndEnhaceContrast() async throws {
         let context = CIContext()
 
+        let imgName = "wotzwaw"
         // 🔹 Input laden (PNG/JPG aus Bundle oder Pfad)
-        let url = URL(fileURLWithPath: "/Users/phiilppwaxweiler.de/Code/TSTM Tonemapper/testpix/schneeweg.tiff")
+        let url = URL(fileURLWithPath: "/Users/phiilppwaxweiler.de/Code/TSTM Tonemapper/testpix\(imgName).jpg")
         let inputImage = CIImage(contentsOf: url)!
         
         let mapped = TSTMTonemapper()
@@ -89,7 +90,7 @@ struct TSTM_TonemapperTests {
                        rowBytes: MemoryLayout<SIMD4<Float32>>.size,
                        bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
                        format: .RGBAf,
-                       colorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)
+                       colorSpace: nil)
         
         #expect(!testValue.sum().isNaN) // can not be Nan
         #expect(!testValue.sum().isInfinite) // can not be inf
@@ -101,7 +102,7 @@ struct TSTM_TonemapperTests {
         }
 
         // 🔹 Speichern
-        let outputURL = URL(fileURLWithPath: "/Users/phiilppwaxweiler.de/Code/TSTM Tonemapper/output_contrast.jpg")
+        let outputURL = URL(fileURLWithPath: "/Users/phiilppwaxweiler.de/Code/TSTM Tonemapper/\(imgName)_Rid.jpg")
 
         let destination = CGImageDestinationCreateWithURL(
             outputURL as CFURL,
