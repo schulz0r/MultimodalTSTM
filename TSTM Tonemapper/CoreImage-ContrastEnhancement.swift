@@ -6,7 +6,6 @@
 //
 
 import CoreImage
-import UniformTypeIdentifiers
 
 final class ContrastEnhancement: CIFilter {
 
@@ -17,7 +16,9 @@ final class ContrastEnhancement: CIFilter {
     @objc dynamic var beta: Float = 1.0
     
 
-    private let context = CIContext(options: [.workingColorSpace: CGColorSpace(name: CGColorSpace.extendedSRGB)!, .outputColorSpace: NSNull()])
+    private let context = CIContext(options:
+                                        [.workingColorSpace: CGColorSpace(name: CGColorSpace.genericRGBLinear)!,
+                                         .outputColorSpace: CGColorSpace(name: CGColorSpace.genericRGBLinear)!])
 
     
     private static let sineImageKernel: CIKernel = {
@@ -61,12 +62,9 @@ final class ContrastEnhancement: CIFilter {
         
         var contrastEnhanced:CIImage? = nil
         
-        for _ in (0..<1)
+        for _ in (0..<2)
         {
             let contrastTerm = calcContrastFunctional(image: contrastEnhanced ?? input)
-            
-            // 🔹 Rendern → CGImage
-            let cgImage = context.createCGImage(contrastTerm, from: contrastTerm.extent)
             
             contrastEnhanced = Self.contrastKernel.apply(extent: input.extent,
                                                         roiCallback: { _, rect in rect },

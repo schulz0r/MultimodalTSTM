@@ -45,6 +45,11 @@ extern "C"
         {
             float r_G = 0.f;
             
+            if(luminance.r == 0)
+            {
+                return float4(float3(0.f), color.a);
+            }
+            
             for (unsigned j = 0; j < numSegments; j++)
             {
                 if( contains(luminance.r, lowerSegmentBorders[j], upperSegmentBorders[j]) )
@@ -59,7 +64,7 @@ extern "C"
                     r_G += c[j] + (h[j] * nakaRushton_r); // equation (21)
                 } // else: nothing
             }
-            const float f_G = (luminance.r / (r_G + 1e-12)) - luminance.r; // equation (24)
+            const float f_G = (luminance.r / (r_G + 1e-3)) - luminance.r; // equation (24)
             
             const float3 toneMapped = color.rgb / (color.rgb + f_G + 1e-3);
             
